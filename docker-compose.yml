@@ -1,0 +1,24 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: dlif_postgres
+
+    environment:
+      POSTGRES_USER: dlif_user
+      POSTGRES_PASSWORD: dlif_password
+      POSTGRES_DB: dlif_db
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - dlif_postgres_data:/var/lib/postgresql/data
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dlif_user -d dlif_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  dlif_postgres_data:
