@@ -25,8 +25,16 @@ class Settings(BaseSettings):
     frontend_base_url: str
 
     # Email
+    email_backend: str = "logging"
+
     email_from_address: str
     email_from_name: str
+
+    smtp_host: str = "smtp.gmail.com"
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_use_tls: bool = True
 
     # Google Meet
     google_meet_enabled: bool = False

@@ -93,7 +93,7 @@ Hi {user.first_name},
 
 Your DegreeLabs Impact Fellowship account has been created.
 
-Activate your account and set up two-factor authentication by visiting:
+Activate your account and create your password by visiting:
 
   {activation_url}
 
@@ -133,7 +133,7 @@ The DegreeLabs Team
               </h1>
               <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#374151;">
                 Your DegreeLabs Impact Fellowship account has been created.
-                To get started, activate your account and set up two-factor authentication.
+                To get started, activate your account and create your password.
               </p>
               <!-- CTA -->
               <table cellpadding="0" cellspacing="0">

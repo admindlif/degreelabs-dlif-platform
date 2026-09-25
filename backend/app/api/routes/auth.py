@@ -88,7 +88,7 @@ def activate(
     access_token = create_access_token(str(user.id), role=user.role)
 
     return ActivateAccountResponse(
-        message="Password set. Please complete two-factor authentication setup.",
+        message="Account activated successfully.",
         user_id=user.id,
         email=user.email,
         access_token=access_token,

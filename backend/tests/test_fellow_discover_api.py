@@ -129,6 +129,113 @@ def setup_fellow_cohort(db: Session, fellow_user: User):
         db.commit()
         db.refresh(enrollment)
 
+            # ---------------------------------------------------------
+    # Create the four DISCOVER weeks
+    # ---------------------------------------------------------
+    week_specs = [
+        (1, "DISCOVER THE REAL PROBLEM"),
+        (2, "CREATE STRATEGIC POSSIBILITIES"),
+        (3, "DESIGN THE STRATEGY"),
+        (4, "BUILD THE CASE FOR ACTION"),
+    ]
+
+    weeks: dict[int, Week] = {}
+
+    for week_number, title in week_specs:
+        week = (
+            db.query(Week)
+            .filter(
+                Week.phase_id == phase.id,
+                Week.week_number == week_number,
+            )
+            .first()
+        )
+
+        if not week:
+            week = Week(
+                phase_id=phase.id,
+                week_number=week_number,
+                title=title,
+                sequence=week_number,
+            )
+            db.add(week)
+            db.flush()
+        else:
+            # Keep test data deterministic
+            week.title = title
+            week.sequence = week_number
+
+        weeks[week_number] = week
+
+    db.commit()
+
+    # ---------------------------------------------------------
+    # Create Session 0 + 12 DISCOVER sessions
+    # ---------------------------------------------------------
+    existing_sessions = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.phase_id == phase.id,
+        )
+        .all()
+    )
+
+    existing_numbers = {
+        session.session_number
+        for session in existing_sessions
+    }
+
+    base_time = datetime.now(timezone.utc) + timedelta(days=1)
+
+    # Session 0 - induction
+    if 0 not in existing_numbers:
+        induction = DBSession(
+            cohort_id=cohort.id,
+            phase_id=phase.id,
+            week_id=None,
+            session_number=0,
+            session_type=SessionType.INDUCTION,
+            title="Session 0 - Induction",
+            start_at=base_time,
+            end_at=base_time + timedelta(hours=1),
+            status=SessionStatus.SCHEDULED,
+            sequence=0,
+        )
+
+        db.add(induction)
+
+    # Sessions 1-12
+    for session_number in range(1, 13):
+        if session_number in existing_numbers:
+            continue
+
+        week_number = ((session_number - 1) // 3) + 1
+        week = weeks[week_number]
+
+        start_at = base_time + timedelta(days=session_number)
+
+        session = DBSession(
+            cohort_id=cohort.id,
+            phase_id=phase.id,
+            week_id=week.id,
+            session_number=session_number,
+            session_type=(
+                SessionType.OUTPUT_REVIEW
+                if session_number % 3 == 0
+                else SessionType.LEARN_WORK
+            ),
+            title=f"Session {session_number}",
+            start_at=start_at,
+            end_at=start_at + timedelta(hours=1),
+            status=SessionStatus.SCHEDULED,
+            sequence=session_number,
+        )
+
+        db.add(session)
+
+    db.commit()
+
     return {"program": program, "cohort": cohort, "phase": phase, "enrollment": enrollment}
 
 

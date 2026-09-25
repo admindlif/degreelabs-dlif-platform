@@ -1,3 +1,4 @@
+from app.models import User
 from datetime import datetime
 from uuid import UUID, uuid4
 

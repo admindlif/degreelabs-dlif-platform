@@ -1,27 +1,12 @@
-"""
-Email service abstraction.
-
-The delivery backend is swappable without changing the calling code.
-In development mode, emails are printed to stdout so developers can
-immediately see the activation URL without needing a mail server.
-
-Production adapters (AWS SES, Postmark, Resend) can be added by
-implementing the ``EmailBackend`` protocol and switching via
-``EMAIL_BACKEND`` environment variable.
-"""
-
 import logging
+import smtplib
+from email.message import EmailMessage
 from typing import Protocol
 
 from app.core.config import settings
 
 
 logger = logging.getLogger(__name__)
-
-
-# ---------------------------------------------------------------------------
-# Backend protocol
-# ---------------------------------------------------------------------------
 
 
 class EmailBackend(Protocol):
@@ -32,23 +17,11 @@ class EmailBackend(Protocol):
         subject: str,
         html_body: str,
         text_body: str,
-    ) -> None: ...
-
-
-# ---------------------------------------------------------------------------
-# Development backend — logs to stdout
-# ---------------------------------------------------------------------------
+    ) -> None:
+        ...
 
 
 class LoggingEmailBackend:
-    """
-    Development-only backend.
-
-    Prints the full email to stdout rather than sending it.
-    The activation URL is printed clearly so developers can copy it
-    directly without requiring a real mail provider.
-    """
-
     def send(
         self,
         *,
@@ -58,9 +31,17 @@ class LoggingEmailBackend:
         text_body: str,
     ) -> None:
         separator = "=" * 72
+
         logger.info(
-            "\n%s\n[DEV EMAIL]\nTo: %s\nSubject: %s\n\n%s\n%s",
+            "\n%s\n"
+            "[DEV EMAIL]\n"
+            "From: %s\n"
+            "To: %s\n"
+            "Subject: %s\n\n"
+            "%s\n"
+            "%s",
             separator,
+            settings.email_from_address,
             to_address,
             subject,
             text_body,
@@ -68,31 +49,90 @@ class LoggingEmailBackend:
         )
 
 
-# ---------------------------------------------------------------------------
-# Backend factory
-# ---------------------------------------------------------------------------
+class SMTPEmailBackend:
+    def send(
+        self,
+        *,
+        to_address: str,
+        subject: str,
+        html_body: str,
+        text_body: str,
+    ) -> None:
+
+        if not settings.smtp_username:
+            raise RuntimeError(
+                "SMTP_USERNAME is not configured."
+            )
+
+        if not settings.smtp_password:
+            raise RuntimeError(
+                "SMTP_PASSWORD is not configured."
+            )
+
+        message = EmailMessage()
+
+        message["Subject"] = subject
+
+        message["From"] = (
+            f"{settings.email_from_name} "
+            f"<{settings.email_from_address}>"
+        )
+
+        message["To"] = to_address
+
+        message.set_content(text_body)
+
+        message.add_alternative(
+            html_body,
+            subtype="html",
+        )
+
+        try:
+            with smtplib.SMTP(
+                settings.smtp_host,
+                settings.smtp_port,
+                timeout=30,
+            ) as smtp:
+
+                smtp.ehlo()
+
+                if settings.smtp_use_tls:
+                    smtp.starttls()
+                    smtp.ehlo()
+
+                smtp.login(
+                    settings.smtp_username,
+                    settings.smtp_password,
+                )
+
+                smtp.send_message(message)
+
+            logger.info(
+                "Invitation email successfully sent to %s",
+                to_address,
+            )
+
+        except Exception:
+            logger.exception(
+                "Failed to send SMTP email to %s",
+                to_address,
+            )
+            raise
 
 
 def _get_backend() -> EmailBackend:
-    """
-    Return the email backend appropriate for the current environment.
 
-    Extend this to support AWS SES, Postmark, or Resend by checking
-    ``settings.email_backend`` and returning the relevant adapter.
-    """
-    if settings.environment == "development":
+    backend = settings.email_backend.strip().lower()
+
+    if backend == "smtp":
+        return SMTPEmailBackend()
+
+    if backend == "logging":
         return LoggingEmailBackend()
 
-    # Production / staging: raise until a real backend is wired in.
-    raise NotImplementedError(
-        f"No email backend configured for environment={settings.environment!r}. "
-        "Implement an adapter in services/email.py."
+    raise RuntimeError(
+        f"Unsupported EMAIL_BACKEND={settings.email_backend!r}"
     )
-
-
-# ---------------------------------------------------------------------------
-# Public helper
-# ---------------------------------------------------------------------------
 
 
 def send_email(
@@ -102,12 +142,9 @@ def send_email(
     html_body: str,
     text_body: str,
 ) -> None:
-    """
-    Send an email via the configured backend.
 
-    This is the only function callers outside this module should use.
-    """
     backend = _get_backend()
+
     backend.send(
         to_address=to_address,
         subject=subject,

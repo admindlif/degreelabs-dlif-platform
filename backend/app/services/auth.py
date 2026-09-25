@@ -377,14 +377,19 @@ def complete_2fa_login(
 
     # Allow recovery code or dev verification code as alternative to TOTP
     if not (user.totp_secret and verify_totp(user.totp_secret, code)):
-        if code in {"123456", "000000"} and user.role in {UserRole.ADMIN, UserRole.SUPER_ADMIN}:
-            pass
-        else:
-            # Attempt recovery code fallback
-            code_hash = _hash_recovery_code(code)
-            recovery = get_unused_recovery_code_by_hash(db, user.id, code_hash)
-            if recovery is None:
-                raise InvalidTwoFACodeError("Invalid authentication code.")
+        code_hash = _hash_recovery_code(code)
+
+        recovery = get_unused_recovery_code_by_hash(
+            db,
+            user.id,
+            code_hash,
+        )
+
+        if recovery is None:
+            raise InvalidTwoFACodeError(
+                "Invalid authentication code."
+            )
+
 
             # Consume recovery code
             recovery.used = True
