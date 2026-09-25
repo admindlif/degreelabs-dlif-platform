@@ -12,11 +12,11 @@ interface LiveSessionSpotlightProps {
 export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
   // Format Date and Time
   const formatSessionTime = (startStr?: string, endStr?: string) => {
-    if (!startStr) return "Today, 6:00 PM – 8:00 PM IST";
+    if (!startStr) return "Schedule to be announced";
     try {
       const start = new Date(startStr);
       const end = endStr ? new Date(endStr) : null;
-      
+
       const datePart = start.toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
@@ -31,10 +31,10 @@ export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
 
       const endTimePart = end
         ? end.toLocaleTimeString("en-US", {
-            hour: "numeric",
-            minute: "2-digit",
-            hour12: true,
-          })
+          hour: "numeric",
+          minute: "2-digit",
+          hour12: true,
+        })
         : "";
 
       return `${datePart}, ${startTimePart}${endTimePart ? ` – ${endTimePart}` : ""} IST`;
@@ -47,8 +47,8 @@ export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
     ? session.session_type === "induction"
       ? "Session 0: Induction"
       : session.session_type === "output_review"
-      ? `Session ${session.session_number}: Output + Review (Gate)`
-      : `Session ${session.session_number}: Learn + Work`
+        ? `Session ${session.session_number}: Output + Review (Gate)`
+        : `Session ${session.session_number}: Learn + Work`
     : "Session 2: Learn + Work";
 
   const isLive = session?.status === "live";
@@ -133,15 +133,25 @@ export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
             rel="noopener noreferrer"
             className="w-full sm:w-auto"
           >
-            <Button variant="primary" size="lg" className="w-full sm:w-auto">
+            <Button
+              variant="primary"
+              size="lg"
+              disabled
+              className="w-full sm:w-auto"
+            >
               <Video className="w-4 h-4" />
-              <span>Join Live Session</span>
+              <span>Meeting Link Coming Soon</span>
             </Button>
           </a>
         ) : (
-          <Button variant="primary" size="lg" className="w-full sm:w-auto">
+          <Button
+            variant="primary"
+            size="lg"
+            disabled
+            className="w-full sm:w-auto"
+          >
             <Video className="w-4 h-4" />
-            <span>Join Live Session</span>
+            <span>Meeting Link Coming Soon</span>
           </Button>
         )}
         <Button variant="secondary" size="lg" className="w-full sm:w-auto">

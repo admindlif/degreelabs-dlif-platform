@@ -71,11 +71,6 @@ export function Sidebar({ className }: SidebarProps) {
           badge: "Alpha-4",
           badgeVariant: "blue" as const,
         },
-        {
-          name: "Dedicated Team Mentor",
-          href: "/mentor",
-          icon: UserCheck,
-        },
       ],
     },
     {
