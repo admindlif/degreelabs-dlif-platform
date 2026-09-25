@@ -1,10 +1,58 @@
 import * as React from "react";
-import { Video, CalendarPlus, Clock, User, FileText, ArrowRight, ExternalLink } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/ui/card";
+import { Video, CalendarPlus, Clock, User, FileText, ExternalLink } from "lucide-react";
+import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { SessionSummary } from "@/lib/api/types";
 
-export function LiveSessionSpotlight() {
+interface LiveSessionSpotlightProps {
+  session?: SessionSummary | null;
+}
+
+export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
+  // Format Date and Time
+  const formatSessionTime = (startStr?: string, endStr?: string) => {
+    if (!startStr) return "Today, 6:00 PM – 8:00 PM IST";
+    try {
+      const start = new Date(startStr);
+      const end = endStr ? new Date(endStr) : null;
+      
+      const datePart = start.toLocaleDateString("en-US", {
+        weekday: "short",
+        month: "short",
+        day: "numeric",
+      });
+
+      const startTimePart = start.toLocaleTimeString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+
+      const endTimePart = end
+        ? end.toLocaleTimeString("en-US", {
+            hour: "numeric",
+            minute: "2-digit",
+            hour12: true,
+          })
+        : "";
+
+      return `${datePart}, ${startTimePart}${endTimePart ? ` – ${endTimePart}` : ""} IST`;
+    } catch {
+      return "Scheduled • Check Calendar";
+    }
+  };
+
+  const sessionBadgeLabel = session
+    ? session.session_type === "induction"
+      ? "Session 0: Induction"
+      : session.session_type === "output_review"
+      ? `Session ${session.session_number}: Output + Review (Gate)`
+      : `Session ${session.session_number}: Learn + Work`
+    : "Session 2: Learn + Work";
+
+  const isLive = session?.status === "live";
+
   return (
     <Card variant="elevated" className="h-full flex flex-col justify-between">
       <div>
@@ -13,21 +61,22 @@ export function LiveSessionSpotlight() {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-brand-orange)] animate-pulse" />
             <span className="text-xs font-bold text-[var(--color-brand-orange)] uppercase tracking-wider">
-              Next Live Session • Today
+              {isLive ? "Live Now" : "Next Live Session"}
             </span>
           </div>
           <Badge variant="blue" size="sm">
-            Session 2: Learn + Work
+            {sessionBadgeLabel}
           </Badge>
         </div>
 
         {/* Title */}
         <CardTitle className="text-2xl md:text-3xl font-extrabold mb-2">
-          Problem Framing & Diagnosis
+          {session?.title || "Problem Framing & Diagnosis"}
         </CardTitle>
 
         <CardDescription className="text-base text-[var(--color-text-body)] mb-6">
-          Deconstruct the company challenge problem statement with our industry partner, identify core constraints, and map stakeholder requirements.
+          {session?.description ||
+            "Deconstruct the company challenge problem statement with our industry partner, identify core constraints, and map stakeholder requirements."}
         </CardDescription>
 
         {/* Schedule & Mentor Information Strip */}
@@ -39,7 +88,7 @@ export function LiveSessionSpotlight() {
             <div>
               <p className="text-xs text-[var(--color-text-muted)] font-medium">Time & Date</p>
               <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                Today, 6:00 PM – 8:00 PM IST
+                {formatSessionTime(session?.start_at, session?.end_at)}
               </p>
             </div>
           </div>
@@ -77,10 +126,24 @@ export function LiveSessionSpotlight() {
 
       {/* Action Footer */}
       <div className="pt-8 border-t border-[var(--color-border-default)] flex flex-wrap items-center gap-3">
-        <Button variant="primary" size="lg" className="w-full sm:w-auto">
-          <Video className="w-4 h-4" />
-          <span>Join Live Session</span>
-        </Button>
+        {session?.meeting_url ? (
+          <a
+            href={session.meeting_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full sm:w-auto"
+          >
+            <Button variant="primary" size="lg" className="w-full sm:w-auto">
+              <Video className="w-4 h-4" />
+              <span>Join Live Session</span>
+            </Button>
+          </a>
+        ) : (
+          <Button variant="primary" size="lg" className="w-full sm:w-auto">
+            <Video className="w-4 h-4" />
+            <span>Join Live Session</span>
+          </Button>
+        )}
         <Button variant="secondary" size="lg" className="w-full sm:w-auto">
           <CalendarPlus className="w-4 h-4" />
           <span>Add to Google Calendar</span>
