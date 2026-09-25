@@ -212,7 +212,14 @@ def activate_account(
     user.password_set_at = now
     user.email_verified_at = now
 
+    # 2FA is optional. Activating the invitation makes the Fellow active.
+    user.account_status = AccountStatus.ACTIVE
+    user.is_active = True
+    user.two_factor_enabled = False
+    user.totp_secret = None
+
     mark_invitation_used(db, invitation)
+    
 
     db.commit()
     db.refresh(user)

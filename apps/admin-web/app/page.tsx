@@ -40,14 +40,19 @@ import { useAuth } from "@/lib/auth-context";
 import {
   AdminCohort,
   AdminFellow,
+  AdminProgram,
   AdminStats,
   AdminTeam,
   getAdminCohorts,
   getAdminFellows,
+  getAdminPrograms,
   getAdminStats,
   getAdminTeams,
+  deleteProgram,
   inviteFellow,
 } from "@/lib/api/admin";
+
+import { ProgramModal } from "@/components/admin/program-modal";
 
 type NavTab =
   | "Dashboard"
@@ -84,6 +89,7 @@ export default function AdminHomePage() {
   // Live data states
   const [stats, setStats] = React.useState<AdminStats | null>(null);
   const [fellows, setFellows] = React.useState<AdminFellow[]>([]);
+  const [programs, setPrograms] = React.useState<AdminProgram[]>([]);
   const [cohorts, setCohorts] = React.useState<AdminCohort[]>([]);
   const [teams, setTeams] = React.useState<AdminTeam[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -99,18 +105,38 @@ export default function AdminHomePage() {
   const [inviteError, setInviteError] = React.useState<string | null>(null);
   const [inviteSuccess, setInviteSuccess] = React.useState<string | null>(null);
 
+
+  // Program modal state
+  const [showProgramModal, setShowProgramModal] = React.useState(false);
+
+  const [programModalMode, setProgramModalMode] =
+    React.useState<"create" | "edit">("create");
+
+  const [selectedProgram, setSelectedProgram] =
+    React.useState<AdminProgram | null>(null);
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [statsData, fellowsData, cohortsData, teamsData] = await Promise.all([
+      const [
+        statsData,
+        fellowsData,
+        programsData,
+        cohortsData,
+        teamsData,
+      ] = await Promise.all([
         getAdminStats().catch(() => null),
         getAdminFellows().catch(() => []),
+        getAdminPrograms().catch(() => []),
         getAdminCohorts().catch(() => []),
         getAdminTeams().catch(() => []),
       ]);
 
-      if (statsData) setStats(statsData);
+      if (statsData) {
+        setStats(statsData);
+      }
+
       setFellows(fellowsData);
+      setPrograms(programsData);
       setCohorts(cohortsData);
       setTeams(teamsData);
     } catch (err) {
@@ -277,27 +303,24 @@ export default function AdminHomePage() {
                       key={item.name}
                       type="button"
                       onClick={() => setActiveTab(item.name)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 group text-left ${
-                        isActive
-                          ? "bg-[var(--color-brand-blue)] text-white font-bold shadow-md shadow-blue-500/20"
-                          : "text-white/70 hover:bg-white/10 hover:text-white"
-                      }`}
+                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 group text-left ${isActive
+                        ? "bg-[var(--color-brand-blue)] text-white font-bold shadow-md shadow-blue-500/20"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                        }`}
                     >
                       <div className="flex items-center gap-3">
                         <Icon
-                          className={`w-4 h-4 transition-transform group-hover:scale-110 ${
-                            isActive ? "text-white" : "text-white/60"
-                          }`}
+                          className={`w-4 h-4 transition-transform group-hover:scale-110 ${isActive ? "text-white" : "text-white/60"
+                            }`}
                         />
                         <span>{item.name}</span>
                       </div>
                       {item.badge && (
                         <span
-                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                            isActive
-                              ? "bg-white text-[var(--color-brand-blue)]"
-                              : "bg-white/10 text-white/80"
-                          }`}
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${isActive
+                            ? "bg-white text-[var(--color-brand-blue)]"
+                            : "bg-white/10 text-white/80"
+                            }`}
                         >
                           {item.badge}
                         </span>
@@ -583,20 +606,18 @@ export default function AdminHomePage() {
                           <td className="py-3 px-4 text-[var(--color-text-body)]">{f.email}</td>
                           <td className="py-3 px-4">
                             <span
-                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${
-                                f.account_status === "active"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200"
-                              }`}
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${f.account_status === "active"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : "bg-amber-50 text-amber-700 border border-amber-200"
+                                }`}
                             >
                               {f.account_status}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`inline-flex items-center gap-1 text-[11px] font-medium ${
-                                f.two_factor_enabled ? "text-emerald-600" : "text-[var(--color-text-muted)]"
-                              }`}
+                              className={`inline-flex items-center gap-1 text-[11px] font-medium ${f.two_factor_enabled ? "text-emerald-600" : "text-[var(--color-text-muted)]"
+                                }`}
                             >
                               <Shield className="w-3 h-3" />
                               {f.two_factor_enabled ? "2FA Enabled" : "Standard"}
@@ -653,11 +674,10 @@ export default function AdminHomePage() {
                       key={st}
                       type="button"
                       onClick={() => setStatusFilter(st)}
-                      className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${
-                        statusFilter === st
-                          ? "bg-[var(--color-brand-navy)] text-white"
-                          : "bg-[var(--color-bg-canvas)] text-[var(--color-text-body)] border border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]"
-                      }`}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold capitalize transition-colors ${statusFilter === st
+                        ? "bg-[var(--color-brand-navy)] text-white"
+                        : "bg-[var(--color-bg-canvas)] text-[var(--color-text-body)] border border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]"
+                        }`}
                     >
                       {st}
                     </button>
@@ -706,22 +726,20 @@ export default function AdminHomePage() {
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
-                                f.account_status === "active"
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : f.account_status === "invited"
+                              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${f.account_status === "active"
+                                ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                : f.account_status === "invited"
                                   ? "bg-amber-50 text-amber-700 border border-amber-200"
                                   : "bg-red-50 text-red-700 border border-red-200"
-                              }`}
+                                }`}
                             >
                               {f.account_status}
                             </span>
                           </td>
                           <td className="py-3 px-4">
                             <span
-                              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${
-                                f.two_factor_enabled ? "text-emerald-600" : "text-amber-600"
-                              }`}
+                              className={`inline-flex items-center gap-1.5 text-[11px] font-semibold ${f.two_factor_enabled ? "text-emerald-600" : "text-amber-600"
+                                }`}
                             >
                               <Shield className="w-3.5 h-3.5" />
                               {f.two_factor_enabled ? "2FA Verified" : "Pending Setup"}
@@ -799,80 +817,166 @@ export default function AdminHomePage() {
           {/* TAB 4: PROGRAMS */}
           {activeTab === "Programs" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-extrabold tracking-tight">DegreeLabs Impact Fellowship (DLIF)</h2>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  Canonical 3-phase curriculum framework according to the DLIF Fellow Handbook.
-                </p>
+              {/* Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-extrabold tracking-tight">
+                    Programs
+                  </h2>
+
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Create and manage DegreeLabs fellowship programs.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedProgram(null);
+                    setProgramModalMode("create");
+                    setShowProgramModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold hover:bg-blue-600 shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>Create Program</span>
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {[
-                  {
-                    phase: "PHASE 1",
-                    title: "DISCOVER",
-                    action: "THINK",
-                    duration: "4 Weeks (12 Sessions)",
-                    status: "ACTIVE IN COHORT 2026-A",
-                    color: "var(--color-brand-orange)",
-                    badge: "brand",
-                    description:
-                      "Deconstruct the industry problem statement, conduct research and diagnosis, explore strategic choices via WWHTBT, and build the Strategy & Execution Blueprint.",
-                  },
-                  {
-                    phase: "PHASE 2",
-                    title: "VALIDATE",
-                    action: "PROVE",
-                    duration: "4 Weeks",
-                    status: "UPCOMING",
-                    color: "var(--color-brand-blue)",
-                    badge: "blue",
-                    description:
-                      "Validate strategic hypotheses with real market data, prototype the solution architecture, and prove feasibility under constraint.",
-                  },
-                  {
-                    phase: "PHASE 3",
-                    title: "GROW",
-                    action: "DELIVER",
-                    duration: "4 Weeks",
-                    status: "UPCOMING",
-                    color: "var(--color-brand-navy)",
-                    badge: "muted",
-                    description:
-                      "Deliver final executive presentations to Company Challenge Owners, industry juries, and receive the DLIF Professional Credential.",
-                  },
-                ].map((p) => (
-                  <div
-                    key={p.title}
-                    className="p-6 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] flex flex-col justify-between space-y-4"
-                  >
-                    <div>
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                          {p.phase}
-                        </span>
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)]">
-                          {p.status}
-                        </span>
-                      </div>
-                      <h3 className="text-2xl font-black tracking-tight" style={{ color: p.color }}>
-                        {p.title} ({p.action})
-                      </h3>
-                      <p className="text-xs text-[var(--color-text-body)] mt-3 leading-relaxed">
-                        {p.description}
-                      </p>
-                    </div>
+              {/* Programs Table */}
+              <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden shadow-xs">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[var(--color-bg-canvas)] border-b border-[var(--color-border-default)]">
+                      <tr className="text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
+                        <th className="py-3.5 px-4">
+                          Program
+                        </th>
 
-                    <div className="pt-4 border-t border-[var(--color-border-default)] text-xs font-semibold text-[var(--color-text-muted)] flex justify-between">
-                      <span>Duration: {p.duration}</span>
-                      <span>DegreeLabs Standard</span>
-                    </div>
-                  </div>
-                ))}
+                        <th className="py-3.5 px-4">
+                          Code
+                        </th>
+
+                        <th className="py-3.5 px-4">
+                          Status
+                        </th>
+
+                        <th className="py-3.5 px-4">
+                          Description
+                        </th>
+
+                        <th className="py-3.5 px-4 text-right">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+
+                    <tbody className="divide-y divide-[var(--color-border-default)]">
+                      {programs.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={5}
+                            className="py-10 text-center text-[var(--color-text-muted)]"
+                          >
+                            No programs found.
+                          </td>
+                        </tr>
+                      ) : (
+                        programs.map((program) => (
+                          <tr
+                            key={program.id}
+                            className="hover:bg-[var(--color-bg-canvas)] transition-colors"
+                          >
+                            {/* Program Name */}
+                            <td className="py-3 px-4">
+                              <div className="font-bold text-[var(--color-text-primary)]">
+                                {program.name}
+                              </div>
+
+                              <div className="text-[10px] text-[var(--color-text-muted)] mt-0.5">
+                                ID: {program.id.substring(0, 8)}...
+                              </div>
+                            </td>
+
+                            {/* Code */}
+                            <td className="py-3 px-4">
+                              <span className="font-bold text-[var(--color-brand-blue)]">
+                                {program.code}
+                              </span>
+                            </td>
+
+                            {/* Status */}
+                            <td className="py-3 px-4">
+                              <span
+                                className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${program.is_active
+                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                  : "bg-gray-100 text-gray-600 border border-gray-200"
+                                  }`}
+                              >
+                                {program.is_active
+                                  ? "Active"
+                                  : "Inactive"}
+                              </span>
+                            </td>
+
+                            {/* Description */}
+                            <td className="py-3 px-4 text-[var(--color-text-muted)] max-w-md">
+                              {program.description || "—"}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-end gap-2">
+                                {/* Edit */}
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedProgram(program);
+                                    setProgramModalMode("edit");
+                                    setShowProgramModal(true);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border border-[var(--color-border-default)] font-semibold hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)] transition-colors"
+                                >
+                                  Edit
+                                </button>
+
+                                {/* Delete */}
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    const confirmed = window.confirm(
+                                      `Are you sure you want to delete "${program.name}"?`
+                                    );
+
+                                    if (!confirmed) {
+                                      return;
+                                    }
+
+                                    try {
+                                      await deleteProgram(program.id);
+                                      await loadData();
+                                    } catch (err: any) {
+                                      window.alert(
+                                        err?.message ||
+                                        "Unable to delete program."
+                                      );
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold hover:bg-red-50 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
-
           {/* TAB 5: TEAMS */}
           {activeTab === "Teams" && (
             <div className="space-y-6">
@@ -1123,6 +1227,22 @@ export default function AdminHomePage() {
             </form>
           </div>
         </div>
+      )}
+      {showProgramModal && (
+        <ProgramModal
+          mode={programModalMode}
+          program={selectedProgram}
+          onClose={() => {
+            setShowProgramModal(false);
+            setSelectedProgram(null);
+          }}
+          onSaved={async () => {
+            setShowProgramModal(false);
+            setSelectedProgram(null);
+
+            await loadData();
+          }}
+        />
       )}
     </div>
   );

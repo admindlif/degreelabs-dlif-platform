@@ -37,33 +37,30 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
           <React.Fragment key={s.num}>
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  isDone
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isDone
                     ? "bg-[var(--color-success)] text-white"
                     : isCurrent
-                    ? "bg-[var(--color-brand-orange)] text-white shadow-md ring-4 ring-orange-500/20"
-                    : "bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]"
-                }`}
+                      ? "bg-[var(--color-brand-orange)] text-white shadow-md ring-4 ring-orange-500/20"
+                      : "bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]"
+                  }`}
               >
                 {isDone ? <Check className="w-4 h-4" /> : s.num}
               </div>
               <span
-                className={`text-[10px] font-semibold tracking-wider uppercase hidden sm:block ${
-                  isCurrent
+                className={`text-[10px] font-semibold tracking-wider uppercase hidden sm:block ${isCurrent
                     ? "text-[var(--color-text-primary)]"
                     : "text-[var(--color-text-muted)]"
-                }`}
+                  }`}
               >
                 {s.label}
               </span>
             </div>
             {idx < steps.length - 1 && (
               <div
-                className={`flex-1 h-0.5 mx-2 transition-all ${
-                  currentStep > idx + 1
+                className={`flex-1 h-0.5 mx-2 transition-all ${currentStep > idx + 1
                     ? "bg-[var(--color-success)]"
                     : "bg-[var(--color-border-default)]"
-                }`}
+                  }`}
               />
             )}
           </React.Fragment>
@@ -108,51 +105,53 @@ function StudentActivationContent() {
       setError("Passwords do not match.");
       return;
     }
+
     if (password.length < 8) {
       setError("Password must be at least 8 characters long.");
       return;
     }
 
     setLoading(true);
+
     try {
       const res = await fetch(`${API_URL}/api/v1/auth/activate`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           token: tokenInput.trim(),
           password,
+          confirm_password: confirmPassword,
         }),
       });
 
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
-        setError(data.detail || "Failed to activate invitation. Token may be invalid or expired.");
+        setError(
+          data.detail ||
+          "Failed to activate invitation. Token may be invalid or expired."
+        );
         return;
       }
 
-      setTempAccessToken(data.access_token);
-
-      // Now fetch 2FA setup details
-      const setupRes = await fetch(`${API_URL}/api/v1/auth/2fa/setup`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${data.access_token}`,
-        },
-      });
-
-      const setupData = await setupRes.json().catch(() => ({}));
-      if (!setupRes.ok) {
-        setError(setupData.detail || "Failed to initialize two-factor authentication setup.");
+      if (!data.access_token) {
+        setError("Account activated, but no login token was returned.");
         return;
       }
 
-      setTotpSecret(setupData.totp_secret);
-      setOtpauthUri(setupData.otpauth_uri);
-      setStep(2);
+      const success = await login(data.access_token);
+
+      if (success) {
+        router.push("/");
+      } else {
+        router.push("/login");
+      }
     } catch {
-      setError("Could not reach Fellow Portal API. Please verify server status.");
+      setError(
+        "Could not reach Fellow Portal API. Please verify server status."
+      );
     } finally {
       setLoading(false);
     }
@@ -309,7 +308,7 @@ function StudentActivationContent() {
                   </>
                 ) : (
                   <>
-                    <span>Next: Set Up 2FA</span>
+                    <span>Activate Account</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}

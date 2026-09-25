@@ -84,6 +84,17 @@ export interface AdminPhase {
   is_active: boolean;
 }
 
+export interface PhaseCreate {
+  program_id: string;
+  code: string;
+  name: string;
+  development_role: string;
+  sequence: number;
+  description?: string;
+  duration_weeks?: number;
+  is_active?: boolean;
+}
+
 export interface AdminWeek {
   id: string;
   phase_id: string;
@@ -125,7 +136,7 @@ export interface AdminSession {
 export interface SessionCreate {
   cohort_id: string;
   phase_id: string;
-  week_id?: string;
+  week_id?: string | null;
   session_number: number;
   session_type?: string;
   title: string;
@@ -133,6 +144,7 @@ export interface SessionCreate {
   start_at: string;
   end_at: string;
   meeting_url?: string;
+  recording_url?: string;
   status?: string;
   sequence: number;
 }
@@ -267,6 +279,13 @@ export async function updatePhase(id: string, data: Partial<AdminPhase>): Promis
 
 export async function deletePhase(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/phases/${id}`, { method: "DELETE" });
+}
+
+export async function createPhase(data: PhaseCreate): Promise<any> {
+  return adminApiClient("/api/v1/admin/phases", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 // ---------------------------------------------------------------------------

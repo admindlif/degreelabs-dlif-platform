@@ -174,8 +174,8 @@ class SessionCreate(BaseModel):
     session_type: str = "learn_work"
     title: str = Field(..., max_length=200)
     description: Optional[str] = Field(None, max_length=1000)
-    start_at: datetime
-    end_at: datetime
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
     meeting_url: Optional[str] = Field(None, max_length=500)
     recording_url: Optional[str] = Field(None, max_length=500)
     status: str = "scheduled"
@@ -201,16 +201,26 @@ class SessionResponse(BaseModel):
     cohort_id: UUID
     phase_id: UUID
     week_id: Optional[UUID]
+
     session_number: int
     session_type: str
+
     title: str
     description: Optional[str]
-    start_at: datetime
-    end_at: datetime
+
+    start_at: Optional[datetime] = None
+    end_at: Optional[datetime] = None
+
     meeting_url: Optional[str]
     recording_url: Optional[str]
+
+    meeting_provider: Optional[str] = None
+    google_meet_space_name: Optional[str] = None
+    google_meet_code: Optional[str] = None
+
     status: str
     sequence: int
+
     created_at: datetime
     updated_at: datetime
 

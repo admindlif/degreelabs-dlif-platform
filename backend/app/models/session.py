@@ -89,19 +89,34 @@ class Session(Base):
         nullable=True,
     )
 
-    start_at: Mapped[datetime] = mapped_column(
+    start_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
+        nullable=True,
         index=True,
     )
 
-    end_at: Mapped[datetime] = mapped_column(
+    end_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True),
-        nullable=False,
+        nullable=True,
     )
 
     meeting_url: Mapped[str | None] = mapped_column(
         String(500),
+        nullable=True,
+    )
+
+    meeting_provider: Mapped[str | None] = mapped_column(
+        String(50),
+        nullable=True,
+    )
+
+    google_meet_space_name: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    google_meet_code: Mapped[str | None] = mapped_column(
+        String(100),
         nullable=True,
     )
 
