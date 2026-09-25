@@ -1,0 +1,3 @@
+"""
+Student API routes package.
+"""

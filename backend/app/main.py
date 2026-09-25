@@ -1,35 +1,80 @@
+"""
+DLIF Platform FastAPI application entry point.
+"""
+
+import logging
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from app.api.router import api_router
+from app.core.config import settings
 from app.db.session import engine
 
+
+# ---------------------------------------------------------------------------
+# Logging
+# ---------------------------------------------------------------------------
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s — %(message)s",
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Application
+# ---------------------------------------------------------------------------
 
 app = FastAPI(
     title="DLIF Platform API",
     version="1.0.0",
+    docs_url="/docs" if settings.environment != "production" else None,
+    redoc_url="/redoc" if settings.environment != "production" else None,
 )
+
+
+# ---------------------------------------------------------------------------
+# CORS
+# ---------------------------------------------------------------------------
+
+_allowed_origins = [settings.frontend_base_url]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
-@app.get("/")
+# ---------------------------------------------------------------------------
+# Routes
+# ---------------------------------------------------------------------------
+
+app.include_router(api_router)
+
+
+# ---------------------------------------------------------------------------
+# Health checks
+# ---------------------------------------------------------------------------
+
+
+@app.get("/", tags=["Health"])
 def root():
     return {"message": "DLIF Platform API is running"}
 
 
-@app.get("/health")
+@app.get("/health", tags=["Health"])
 def health():
     return {"status": "healthy"}
 
 
-@app.get("/health/db")
+@app.get("/health/db", tags=["Health"])
 def database_health():
     with engine.connect() as connection:
         connection.execute(text("SELECT 1"))
