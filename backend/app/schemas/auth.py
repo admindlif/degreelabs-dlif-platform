@@ -108,10 +108,12 @@ class LoginResponse(BaseModel):
 
     ``requires_2fa=True`` means the client must post the TOTP code to
     /auth/2fa/verify with the ``challenge_token``.
+    If ``requires_2fa=False``, ``access_token`` is provided directly.
     """
 
     requires_2fa: bool
-    challenge_token: str
+    challenge_token: str | None = None
+    access_token: str | None = None
 
 
 class VerifyTOTPRequest(BaseModel):

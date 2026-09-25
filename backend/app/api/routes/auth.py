@@ -183,7 +183,7 @@ def login(
     via POST /auth/2fa/verify.
     """
     try:
-        _user, challenge_token = verify_login_credentials(
+        _user, challenge_token, access_token = verify_login_credentials(
             db,
             str(data.email),
             data.password,
@@ -208,6 +208,12 @@ def login(
             status_code=status.HTTP_403_FORBIDDEN,
             detail=str(exc),
         ) from exc
+
+    if access_token:
+        return LoginResponse(
+            requires_2fa=False,
+            access_token=access_token,
+        )
 
     return LoginResponse(
         requires_2fa=True,

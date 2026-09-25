@@ -42,6 +42,17 @@ export default function AdminLoginPage() {
         return;
       }
 
+      if (data.access_token) {
+        const success = await login(data.access_token);
+        if (success) {
+          router.push("/");
+          return;
+        } else {
+          setError("Access Denied: Your account does not have Administrator privileges.");
+          return;
+        }
+      }
+
       if (data.requires_2fa && data.challenge_token) {
         setChallengeToken(data.challenge_token);
         setStage(2);
