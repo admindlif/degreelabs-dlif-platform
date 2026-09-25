@@ -12,12 +12,16 @@ if str(backend_path) not in sys.path:
     sys.path.insert(0, str(backend_path))
 
 import logging
+# pyrefly: ignore [missing-import]
 from fastapi import FastAPI
+# pyrefly: ignore [missing-import]
 from fastapi.middleware.cors import CORSMiddleware
+# pyrefly: ignore [missing-import]
 from sqlalchemy import text
 
-from app.core.config import settings
+# pyrefly: ignore [missing-import]
 from app.db.session import engine
+# pyrefly: ignore [missing-import]
 from app.api.router import api_router
 from apps.admin_api.routes import router as admin_portal_router
 
