@@ -211,7 +211,7 @@ export function Sidebar({ className }: SidebarProps) {
         <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-default)]">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-8 h-8 rounded-full bg-[var(--color-brand-navy)] text-white text-xs font-bold flex items-center justify-center shrink-0">
-              {user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase() : "ST"}
+              {user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase() : "FL"}
             </div>
             <div className="flex flex-col min-w-0">
               <span className="text-xs font-bold text-[var(--color-text-primary)] leading-tight truncate">

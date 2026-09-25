@@ -4,16 +4,25 @@ import * as React from "react";
 import { Search, Bell, ShieldCheck, ChevronRight, Video } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { SessionSummary } from "@/lib/api/types";
 
 interface TopbarProps {
   breadcrumbs?: string[];
   roleTitle?: string;
+  nextSession?: SessionSummary | null;
 }
 
 export function Topbar({
   breadcrumbs = ["Cohort 2026-A", "DISCOVER (THINK)", "Week 1"],
   roleTitle = "Fellow Portal",
+  nextSession,
 }: TopbarProps) {
+  const nextSessionLabel = nextSession
+    ? nextSession.status === "live"
+      ? `Live Now: Session ${String(nextSession.session_number).padStart(2, "0")}`
+      : `Next: Session ${String(nextSession.session_number).padStart(2, "0")}`
+    : "Next: Session 02";
+
   return (
     <header className="h-16 sticky top-0 z-20 bg-[var(--color-bg-canvas)]/90 backdrop-blur-md border-b border-[var(--color-border-default)] px-6 flex items-center justify-between gap-4">
       {/* Breadcrumbs */}
@@ -52,25 +61,24 @@ export function Topbar({
         <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-brand-orange-subtle)] border border-[#FFD5C6]">
           <span className="w-2 h-2 rounded-full bg-[var(--color-brand-orange)] animate-pulse" />
           <span className="text-xs font-bold text-[var(--color-brand-orange)]">
-            Live in 2h: Session 02
+            {nextSessionLabel}
           </span>
         </div>
 
         {/* Notifications */}
         <button
           type="button"
-          className="relative p-2 rounded-full hover:bg-[var(--color-bg-subtle)] text-[var(--color-text-body)] hover:text-[var(--color-text-primary)] transition-colors"
+          className="relative w-9 h-9 rounded-full border border-[var(--color-border-default)] hover:border-[var(--color-border-strong)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-surface)] transition-colors shadow-xs"
           title="Notifications"
         >
           <Bell className="w-4 h-4" />
-          <span className="w-2 h-2 rounded-full bg-[var(--color-brand-orange)] absolute top-1.5 right-1.5" />
+          <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--color-brand-orange)] rounded-full" />
         </button>
 
-        {/* Security / 2FA status */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#E8FAF0] border border-[#BCEFD3] text-[11px] font-bold text-[#128C48]">
-          <ShieldCheck className="w-3.5 h-3.5" />
-          <span className="hidden sm:inline">2FA Verified</span>
-        </div>
+        {/* Portal Scope Indicator */}
+        <Badge variant="blue" size="md" className="hidden sm:inline-flex">
+          {roleTitle}
+        </Badge>
       </div>
     </header>
   );

@@ -19,17 +19,15 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-
-export type PortalRole = "student" | "mentor" | "admin";
+import { useAuth } from "@/lib/auth-context";
 
 interface SidebarProps {
-  currentRole: PortalRole;
-  onRoleChange?: (role: PortalRole) => void;
   className?: string;
 }
 
-export function Sidebar({ currentRole, onRoleChange, className }: SidebarProps) {
+export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
 
   const navigationGroups = [
     {
@@ -211,22 +209,23 @@ export function Sidebar({ currentRole, onRoleChange, className }: SidebarProps) 
         </div>
 
         <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-default)]">
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-[var(--color-brand-navy)] text-white text-xs font-bold flex items-center justify-center">
-              SR
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-[var(--color-brand-navy)] text-white text-xs font-bold flex items-center justify-center shrink-0">
+              {user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase() : "FL"}
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-bold text-[var(--color-text-primary)] leading-tight">
-                Samantha R.
+            <div className="flex flex-col min-w-0">
+              <span className="text-xs font-bold text-[var(--color-text-primary)] leading-tight truncate">
+                {user ? `${user.first_name} ${user.last_name}` : "Fellow"}
               </span>
-              <span className="text-[10px] text-[var(--color-text-muted)]">
-                2FA Enabled • Active
+              <span className="text-[10px] text-[var(--color-text-muted)] truncate">
+                {user?.two_factor_enabled ? "2FA Enabled" : "Active"}
               </span>
             </div>
           </div>
           <button
             type="button"
-            className="text-[var(--color-text-muted)] hover:text-[var(--color-brand-orange)] p-1.5 rounded-lg hover:bg-[var(--color-bg-subtle)] transition-colors"
+            onClick={logout}
+            className="text-[var(--color-text-muted)] hover:text-[var(--color-brand-orange)] p-1.5 rounded-lg hover:bg-[var(--color-bg-subtle)] transition-colors shrink-0"
             title="Log out"
           >
             <LogOut className="w-4 h-4" />
