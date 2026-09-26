@@ -1,0 +1,15 @@
+warning: in the working copy of 'backend/app/api/routes/auth.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/core/permissions.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/core/security.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/schemas/auth.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/services/auth.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'frontend/app/activate/page.tsx', LF will be replaced by CRLF the next time Git touches it
+ backend/app/api/routes/auth.py           |  81 [32m+++++++++++[m[31m-----[m
+ backend/app/core/config.py               |   5 [32m+[m[31m-[m
+ backend/app/core/permissions.py          |  96 [32m++++++++++++++++++[m[31m-[m
+ backend/app/core/security.py             |  46 [32m+++++++++[m
+ backend/app/models/user_recovery_code.py |   3 [32m+[m
+ backend/app/schemas/auth.py              |   4 [32m+[m[31m-[m
+ backend/app/services/auth.py             | 157 [32m+++++++++++++++++++++++++[m[31m------[m
+ frontend/app/activate/page.tsx           |  47 [32m++++[m[31m-----[m
+ 8 files changed, 360 insertions(+), 79 deletions(-)

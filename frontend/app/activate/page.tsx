@@ -37,33 +37,30 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
           <React.Fragment key={s.num}>
             <div className="flex flex-col items-center gap-1.5">
               <div
-                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-                  isDone
-                    ? "bg-[var(--color-success)] text-white"
-                    : isCurrent
+                className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isDone
+                  ? "bg-[var(--color-success)] text-white"
+                  : isCurrent
                     ? "bg-[var(--color-brand-orange)] text-white shadow-md ring-4 ring-orange-500/20"
                     : "bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]"
-                }`}
+                  }`}
               >
                 {isDone ? <Check className="w-4 h-4" /> : s.num}
               </div>
               <span
-                className={`text-[10px] font-semibold tracking-wider uppercase hidden sm:block ${
-                  isCurrent
-                    ? "text-[var(--color-text-primary)]"
-                    : "text-[var(--color-text-muted)]"
-                }`}
+                className={`text-[10px] font-semibold tracking-wider uppercase hidden sm:block ${isCurrent
+                  ? "text-[var(--color-text-primary)]"
+                  : "text-[var(--color-text-muted)]"
+                  }`}
               >
                 {s.label}
               </span>
             </div>
             {idx < steps.length - 1 && (
               <div
-                className={`flex-1 h-0.5 mx-2 transition-all ${
-                  currentStep > idx + 1
-                    ? "bg-[var(--color-success)]"
-                    : "bg-[var(--color-border-default)]"
-                }`}
+                className={`flex-1 h-0.5 mx-2 transition-all ${currentStep > idx + 1
+                  ? "bg-[var(--color-success)]"
+                  : "bg-[var(--color-border-default)]"
+                  }`}
               />
             )}
           </React.Fragment>
@@ -85,7 +82,11 @@ function StudentActivationContent() {
   const [confirmPassword, setConfirmPassword] = React.useState("");
 
   // Intermediate auth state
-  const [tempAccessToken, setTempAccessToken] = React.useState("");
+  const [onboardingToken, setOnboardingToken] =
+    React.useState("");
+
+  const [finalAccessToken, setFinalAccessToken] =
+    React.useState("");
   const [totpSecret, setTotpSecret] = React.useState("");
   const [otpauthUri, setOtpauthUri] = React.useState("");
   const [totpCode, setTotpCode] = React.useState("");
@@ -121,6 +122,7 @@ function StudentActivationContent() {
         body: JSON.stringify({
           token: tokenInput.trim(),
           password,
+          confirm_password: confirmPassword,
         }),
       });
 
@@ -131,14 +133,14 @@ function StudentActivationContent() {
         return;
       }
 
-      setTempAccessToken(data.access_token);
+      setOnboardingToken(data.onboarding_token);
 
       // Now fetch 2FA setup details
       const setupRes = await fetch(`${API_URL}/api/v1/auth/2fa/setup`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${data.access_token}`,
+          Authorization: `Bearer ${data.onboarding_token}`,
         },
       });
 
@@ -148,8 +150,8 @@ function StudentActivationContent() {
         return;
       }
 
-      setTotpSecret(setupData.totp_secret);
-      setOtpauthUri(setupData.otpauth_uri);
+      setTotpSecret(setupData.secret);
+      setOtpauthUri(setupData.totp_uri);
       setStep(2);
     } catch {
       setError("Could not reach Fellow Portal API. Please verify server status.");
@@ -169,7 +171,7 @@ function StudentActivationContent() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${tempAccessToken}`,
+          Authorization: `Bearer ${onboardingToken}`,
         },
         body: JSON.stringify({
           code: totpCode.trim(),
@@ -184,6 +186,7 @@ function StudentActivationContent() {
       }
 
       setRecoveryCodes(data.recovery_codes || []);
+      setFinalAccessToken(data.access_token);
       setStep(4);
     } catch {
       setError("Failed to verify 2FA code. Please try again.");
@@ -201,7 +204,7 @@ function StudentActivationContent() {
   const handleFinishOnboarding = async () => {
     setLoading(true);
     try {
-      const success = await login(tempAccessToken);
+      const success = await login(finalAccessToken);
       if (success) {
         router.push("/");
       } else {

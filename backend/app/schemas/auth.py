@@ -62,7 +62,7 @@ class ActivateAccountResponse(BaseModel):
     message: str
     user_id: UUID
     email: EmailStr
-    access_token: str | None = None
+    onboarding_token: str
     token_type: str = "bearer"
 
 
@@ -90,6 +90,8 @@ class ConfirmTwoFARequest(BaseModel):
 class ConfirmTwoFAResponse(BaseModel):
     message: str
     recovery_codes: list[str]
+    access_token: str
+    token_type: str = "bearer"
 
 
 # ---------------------------------------------------------------------------

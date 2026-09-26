@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 
 
 class Settings(BaseSettings):
@@ -11,7 +12,7 @@ class Settings(BaseSettings):
     database_url: str
 
     # JWT
-    secret_key: str
+    secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = 30
 
     # Invitation
@@ -20,6 +21,8 @@ class Settings(BaseSettings):
     # 2FA
     totp_issuer: str = "DegreeLabs DLIF"
     two_fa_challenge_expire_minutes: int = 10
+
+    onboarding_token_expire_minutes: int = 20
 
     # Frontend
     frontend_base_url: str

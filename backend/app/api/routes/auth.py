@@ -12,8 +12,14 @@ GET  /api/v1/auth/me             — return current user profile
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.core.permissions import require_authenticated_user
-from app.core.security import create_access_token
+from app.core.permissions import (
+    require_authenticated_user,
+    require_onboarding_user,
+)
+from app.core.security import (
+    create_access_token,
+    create_onboarding_token,
+)
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.auth import (
@@ -85,13 +91,18 @@ def activate(
             detail=str(exc),
         ) from exc
 
-    access_token = create_access_token(str(user.id), role=user.role)
+    onboarding_token = create_onboarding_token(
+        str(user.id)
+    )
 
     return ActivateAccountResponse(
-        message="Account activated successfully.",
+        message=(
+            "Password created successfully. "
+            "Complete two-factor authentication setup."
+        ),
         user_id=user.id,
         email=user.email,
-        access_token=access_token,
+        onboarding_token=onboarding_token,
     )
 
 
@@ -108,7 +119,9 @@ def activate(
 )
 def two_fa_setup(
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_authenticated_user),
+    current_user: User = Depends(
+        require_onboarding_user
+    )
 ) -> TwoFASetupResponse:
     """
     Step 2 of student onboarding (also usable for 2FA reset).
@@ -128,37 +141,44 @@ def two_fa_setup(
     status_code=status.HTTP_200_OK,
     summary="Confirm TOTP setup and activate account",
 )
+
 def two_fa_confirm(
     data: ConfirmTwoFARequest,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_authenticated_user),
+    current_user: User = Depends(require_onboarding_user),
 ) -> ConfirmTwoFAResponse:
-    """
-    Step 3 of student onboarding.
-
-    Verifies the first TOTP code, enables 2FA, sets account_status to
-    ``active``, and returns one-time recovery codes.
-
-    Recovery codes are shown **once only** and must not be re-requested.
-    """
     try:
-        plain_codes = confirm_2fa(db, current_user, data.code)
+        plain_codes = confirm_2fa(
+            db,
+            current_user,
+            data.code,
+        )
+
     except TwoFANotConfiguredError as exc:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
     except InvalidTwoFACodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail=str(exc),
         ) from exc
 
-    return ConfirmTwoFAResponse(
-        message="Two-factor authentication enabled. Store your recovery codes safely.",
-        recovery_codes=plain_codes,
+    access_token = create_access_token(
+        str(current_user.id),
+        role=current_user.role,
     )
 
+    return ConfirmTwoFAResponse(
+        message=(
+            "Two-factor authentication enabled. "
+            "Store your recovery codes safely."
+        ),
+        recovery_codes=plain_codes,
+        access_token=access_token,
+    )
 
 # ---------------------------------------------------------------------------
 # Login — stage 1
@@ -232,34 +252,45 @@ def login(
     status_code=status.HTTP_200_OK,
     summary="Stage 2 login: verify TOTP code and issue access token",
 )
+
 def two_fa_verify(
     data: VerifyTOTPRequest,
     db: Session = Depends(get_db),
 ) -> TokenResponse:
-    """
-    Stage 2 of the two-stage login flow.
-
-    Accepts either a TOTP code (6 digits) or a recovery code.
-    On success, issues a full authenticated access token.
-    """
     try:
         _user, access_token = complete_2fa_login(
             db,
             data.challenge_token,
             data.code,
         )
+
     except InvalidCredentialsError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail=str(exc),
         ) from exc
+
     except InvalidTwoFACodeError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication code.",
         ) from exc
 
-    return TokenResponse(access_token=access_token)
+    except AccountSuspendedError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+
+    except TwoFANotConfiguredError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=str(exc),
+        ) from exc
+
+    return TokenResponse(
+        access_token=access_token,
+    )
 
 
 # ---------------------------------------------------------------------------

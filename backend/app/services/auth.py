@@ -9,6 +9,9 @@ Covers:
 - Current user retrieval
 """
 
+from app.models import user_invitation
+from app.models import user_invitation
+from app.models import user_invitation
 import hashlib
 import logging
 import secrets
@@ -199,21 +202,26 @@ def activate_account(
     if invitation.expires_at.replace(tzinfo=timezone.utc) < now:
         raise InvalidInvitationError("This activation link has expired.")
 
-    user = get_user_by_id(db, invitation.user_id)
+    user = get_user_by_id(
+        db,
+        invitation.user_id,
+    )
+
     if user is None:
-        raise InvalidInvitationError("User not found.")
+        raise InvalidInvitationError(
+            "User not found."
+        )
 
     if user.account_status != AccountStatus.INVITED:
         raise AccountNotInvitedError(
             "This account has already been activated or is suspended."
         )
-
     user.password_hash = hash_password(data.password)
     user.password_set_at = now
     user.email_verified_at = now
 
-    # 2FA is optional. Activating the invitation makes the Fellow active.
-    user.account_status = AccountStatus.ACTIVE
+    # Fellow remains INVITED until mandatory 2FA setup is confirmed.
+    user.account_status = AccountStatus.INVITED
     user.is_active = True
     user.two_factor_enabled = False
     user.totp_secret = None
@@ -310,40 +318,104 @@ def verify_login_credentials(
     password: str,
 ) -> tuple[User, str | None, str | None]:
     """
-    Validate email + password and return:
-    (user, challenge_token, access_token)
+    Validate email + password.
 
-    If 2FA is not enabled, directly issues an access_token.
-    If 2FA is enabled, returns challenge_token.
+    Returns:
+        (user, challenge_token, access_token)
+
+    Fellows must always complete 2FA before receiving
+    a normal access token.
+
+    Non-Fellow roles may continue without 2FA unless
+    2FA has explicitly been enabled for their account.
     """
+
     normalized_email = email.strip().lower()
-    user = get_user_by_email(db, normalized_email)
 
-    # Use a constant-time-equivalent approach to prevent user enumeration.
+    user = get_user_by_email(
+        db,
+        normalized_email,
+    )
+
     if user is None or user.password_hash is None:
-        raise InvalidCredentialsError("Invalid email or password.")
+        raise InvalidCredentialsError(
+            "Invalid email or password."
+        )
 
-    if not verify_password(password, user.password_hash):
-        raise InvalidCredentialsError("Invalid email or password.")
+    if not verify_password(
+        password,
+        user.password_hash,
+    ):
+        raise InvalidCredentialsError(
+            "Invalid email or password."
+        )
+
+    if not user.is_active:
+        raise InvalidCredentialsError(
+            "Account is inactive."
+        )
 
     if user.account_status == AccountStatus.SUSPENDED:
-        raise AccountSuspendedError("This account has been suspended.")
+        raise AccountSuspendedError(
+            "This account has been suspended."
+        )
 
     if user.account_status == AccountStatus.INVITED:
         raise AccountNotInvitedError(
-            "Account setup is incomplete. Please check your invitation email."
+            "Account setup is incomplete. "
+            "Please check your invitation email."
         )
 
-    if not user.two_factor_enabled:
-        user.last_login_at = datetime.now(timezone.utc)
-        db.commit()
-        access_token = create_access_token(str(user.id), role=user.role)
-        return user, None, access_token
+    # ---------------------------------------------------------
+    # Fellows MUST use 2FA
+    # ---------------------------------------------------------
+    if user.role in {
+        UserRole.FELLOW,
+        UserRole.STUDENT,
+    }:
+        if (
+            not user.two_factor_enabled
+            or not user.totp_secret
+        ):
+            raise TwoFANotConfiguredError(
+                "Two-factor authentication setup is incomplete."
+            )
 
-    challenge_token = create_2fa_challenge_token(str(user.id))
+        challenge_token = create_2fa_challenge_token(
+            str(user.id)
+        )
 
-    return user, challenge_token, None
+        return user, challenge_token, None
 
+    # ---------------------------------------------------------
+    # Other roles
+    # If they have 2FA enabled, require it.
+    # ---------------------------------------------------------
+    if user.two_factor_enabled:
+        if not user.totp_secret:
+            raise TwoFANotConfiguredError(
+                "Two-factor authentication configuration is incomplete."
+            )
+
+        challenge_token = create_2fa_challenge_token(
+            str(user.id)
+        )
+
+        return user, challenge_token, None
+
+    # ---------------------------------------------------------
+    # Non-Fellow account without mandatory 2FA
+    # ---------------------------------------------------------
+    user.last_login_at = datetime.now(timezone.utc)
+
+    db.commit()
+
+    access_token = create_access_token(
+        str(user.id),
+        role=user.role,
+    )
+
+    return user, None, access_token
 
 # ---------------------------------------------------------------------------
 # Login — stage 2: TOTP verification
@@ -372,11 +444,39 @@ def complete_2fa_login(
     user_id = UUID(payload["sub"])
     user = get_user_by_id(db, user_id)
 
+    
+
     if user is None:
         raise InvalidCredentialsError("User not found.")
 
+    if not user.is_active:
+        raise InvalidCredentialsError(
+            "Account is inactive."
+        )
+
+    if user.account_status == AccountStatus.SUSPENDED:
+        raise AccountSuspendedError(
+            "This account has been suspended."
+        )
+
+    if user.account_status != AccountStatus.ACTIVE:
+        raise InvalidCredentialsError(
+            "Account setup is incomplete."
+        )
+
+    if not user.two_factor_enabled:
+        raise TwoFANotConfiguredError(
+            "Two-factor authentication is not enabled."
+        )
+
     # Allow recovery code or dev verification code as alternative to TOTP
-    if not (user.totp_secret and verify_totp(user.totp_secret, code)):
+    if not (
+        user.totp_secret
+        and verify_totp(
+            user.totp_secret,
+            code,
+        )
+    ):
         code_hash = _hash_recovery_code(code)
 
         recovery = get_unused_recovery_code_by_hash(
@@ -390,11 +490,10 @@ def complete_2fa_login(
                 "Invalid authentication code."
             )
 
-
-            # Consume recovery code
-            recovery.used = True
-            recovery.used_at = datetime.now(timezone.utc)
-            db.commit()
+        # Recovery codes are strictly one-time use.
+        recovery.used = True
+        recovery.used_at = datetime.now(timezone.utc)
+        db.flush()
 
     # Update last login
     user.last_login_at = datetime.now(timezone.utc)

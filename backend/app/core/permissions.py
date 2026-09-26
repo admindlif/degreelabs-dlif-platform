@@ -26,7 +26,10 @@ import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
-from app.core.security import decode_access_token
+from app.core.security import (
+    decode_access_token,
+    decode_onboarding_token,
+)
 from app.db.session import get_db
 from app.models.user import AccountStatus, User, UserRole
 from app.repositories.user import get_user_by_id
@@ -78,6 +81,91 @@ def _extract_user_id_from_token(
     return payload["sub"]
 
 
+def _extract_onboarding_user_id_from_token(
+    credentials: HTTPAuthorizationCredentials | None,
+) -> str:
+    if credentials is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Onboarding authentication required.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    try:
+        payload = decode_onboarding_token(
+            credentials.credentials
+        )
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Onboarding session has expired.",
+        )
+    except jwt.PyJWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid onboarding token.",
+        )
+
+    return payload["sub"]
+
+def require_onboarding_user(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None,
+        Depends(_bearer_scheme),
+    ],
+    db: Session = Depends(get_db),
+) -> User:
+    """
+    Allow only Fellows who have set their password but
+    have not yet completed 2FA onboarding.
+    """
+
+    user_id_str = _extract_onboarding_user_id_from_token(
+        credentials
+    )
+
+    try:
+        user_id = UUID(user_id_str)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid onboarding token subject.",
+        )
+
+    user = get_user_by_id(
+        db,
+        user_id,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found.",
+        )
+
+    if user.role not in {
+        UserRole.FELLOW,
+        UserRole.STUDENT,
+    }:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Onboarding is restricted to Fellows.",
+        )
+
+    if user.account_status != AccountStatus.INVITED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Fellow onboarding has already been completed.",
+        )
+
+    if not user.password_set_at:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Password setup is incomplete.",
+        )
+
+    return user
+
 # ---------------------------------------------------------------------------
 # Base dependency: authenticated user
 # ---------------------------------------------------------------------------
@@ -125,6 +213,12 @@ def require_authenticated_user(
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Account has been suspended.",
+        )
+
+    if user.account_status != AccountStatus.ACTIVE:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Account setup is incomplete.",
         )
 
     return user

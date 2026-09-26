@@ -30,6 +30,7 @@ ALGORITHM = "HS256"
 
 # Token type claim used to distinguish JWT purposes.
 _TOKEN_TYPE_ACCESS = "access"
+_TOKEN_TYPE_ONBOARDING = "onboarding"
 _TOKEN_TYPE_2FA_CHALLENGE = "2fa_challenge"
 
 
@@ -99,6 +100,51 @@ def decode_access_token(token: str) -> dict:
     )
 
     if payload.get("type") != _TOKEN_TYPE_ACCESS:
+        raise jwt.InvalidTokenError("Token type mismatch")
+
+    return payload
+
+
+# ---------------------------------------------------------------------------
+# JWT — onboarding tokens
+# ---------------------------------------------------------------------------
+
+
+def create_onboarding_token(user_id: str) -> str:
+    """
+    Create a short-lived token that is valid only for completing
+    Fellow onboarding / 2FA setup.
+
+    It must never be accepted by normal portal endpoints.
+    """
+    expires_at = datetime.now(timezone.utc) + timedelta(
+        minutes=settings.onboarding_token_expire_minutes
+    )
+
+    payload = {
+        "sub": user_id,
+        "exp": expires_at,
+        "type": _TOKEN_TYPE_ONBOARDING,
+    }
+
+    return jwt.encode(
+        payload,
+        settings.secret_key,
+        algorithm=ALGORITHM,
+    )
+
+
+def decode_onboarding_token(token: str) -> dict:
+    """
+    Decode a Fellow onboarding token.
+    """
+    payload = jwt.decode(
+        token,
+        settings.secret_key,
+        algorithms=[ALGORITHM],
+    )
+
+    if payload.get("type") != _TOKEN_TYPE_ONBOARDING:
         raise jwt.InvalidTokenError("Token type mismatch")
 
     return payload
