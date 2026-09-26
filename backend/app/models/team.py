@@ -7,10 +7,11 @@ from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
     ForeignKey,
+    Index,
     String,
-    Text,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -98,10 +99,25 @@ class TeamMembership(Base):
 
     __tablename__ = "team_memberships"
     __table_args__ = (
-        UniqueConstraint("team_id", "user_id", name="uq_team_user_membership"),
-        UniqueConstraint("cohort_id", "user_id", name="uq_cohort_user_team"),
+        UniqueConstraint(
+            "team_id",
+            "user_id",
+            name="uq_team_user_membership",
+        ),
+        UniqueConstraint(
+            "cohort_id",
+            "user_id",
+            name="uq_cohort_user_team",
+        ),
+        Index(
+            "uq_team_single_lead",
+            "team_id",
+            unique=True,
+            postgresql_where=text(
+                "team_role = 'lead'"
+            ),
+        ),
     )
-
     id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True),
         primary_key=True,

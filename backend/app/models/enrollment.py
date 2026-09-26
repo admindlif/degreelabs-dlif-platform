@@ -6,8 +6,10 @@ from sqlalchemy import (
     DateTime,
     Enum as SQLEnum,
     ForeignKey,
+    Index,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, backref, mapped_column, relationship
@@ -25,7 +27,19 @@ class EnrollmentStatus(str, Enum):
 class Enrollment(Base):
     __tablename__ = "enrollments"
     __table_args__ = (
-        UniqueConstraint("user_id", "cohort_id", name="uq_user_cohort_enrollment"),
+        UniqueConstraint(
+            "user_id",
+            "cohort_id",
+            name="uq_user_cohort_enrollment",
+        ),
+        Index(
+            "uq_active_enrollment_per_user",
+            "user_id",
+            unique=True,
+            postgresql_where=text(
+                "enrollment_status = 'active'"
+            ),
+        ),
     )
 
     id: Mapped[UUID] = mapped_column(

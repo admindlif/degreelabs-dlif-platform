@@ -22,15 +22,29 @@ from app.models.team import Team, TeamMembership, TeamMemberRole
 from app.models.user import AccountStatus, User, UserRole
 from app.models.week import Week
 from app.schemas.admin_crud import (
-    CohortCreate, CohortUpdate,
+    CohortCreate,
+    CohortUpdate,
     FellowUpdate,
-    PhaseCreate, PhaseUpdate,
-    ProgramCreate, ProgramUpdate,
-    ResourceCreate, ResourceUpdate,
-    SessionCreate, SessionUpdate,
-    TeamCreate, TeamUpdate,
+    PhaseCreate,
+    PhaseUpdate,
+    ProgramCreate,
+    ProgramUpdate,
+    ResourceCreate,
+    ResourceUpdate,
+    SessionCreate,
+    SessionUpdate,
+    TeamCreate,
+    TeamUpdate,
     TeamMemberAdd,
-    WeekCreate, WeekUpdate,
+    TeamLeadAssign,
+    WeekCreate,
+    WeekUpdate,
+)
+
+from app.services.team import (
+    add_member_to_team,
+    remove_member_from_team,
+    set_team_lead,
 )
 from app.schemas.auth import (
     CreateFellowRequest,
@@ -471,6 +485,19 @@ def remove_fellow_from_cohort(
             f"{cohort_id}/{fellow_id}",
         )
 
+        team_membership = db.scalar(
+        select(TeamMembership).where(
+            TeamMembership.cohort_id == cohort_id,
+            TeamMembership.user_id == fellow_id,
+        )
+    )
+
+    if team_membership:
+        raise _conflict(
+            "Remove the Fellow from their Team before "
+            "removing them from the Cohort."
+        )
+
     db.delete(enrollment)
     db.commit()
 
@@ -755,30 +782,83 @@ def delete_team(team_id: str, db: Session = Depends(get_db), _admin: User = Depe
     db.commit()
 
 
-@router.post("/teams/{team_id}/members", status_code=status.HTTP_201_CREATED, summary="Add a Fellow to a Team")
-def add_team_member(team_id: str, data: TeamMemberAdd, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    team = db.scalar(select(Team).where(Team.id == team_id))
-    if not team:
-        raise _not_found("Team", team_id)
-    if not db.scalar(select(User).where(User.id == data.user_id)):
-        raise _not_found("Fellow", data.user_id)
-    if db.scalar(select(TeamMembership).where(TeamMembership.team_id == team_id, TeamMembership.user_id == data.user_id)):
-        raise _conflict("This Fellow is already a member of this team.")
-    membership = TeamMembership(team_id=team.id, cohort_id=team.cohort_id, user_id=data.user_id, team_role=TeamMemberRole(data.team_role))
-    db.add(membership)
-    db.commit()
-    db.refresh(membership)
-    return {"id": str(membership.id), "team_id": team_id, "user_id": str(data.user_id), "team_role": membership.team_role.value}
+@router.post(
+    "/teams/{team_id}/members",
+    status_code=status.HTTP_201_CREATED,
+    summary="Add a Fellow to a Team",
+)
+def add_team_member(
+    team_id: UUID,
+    data: TeamMemberAdd,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    membership = add_member_to_team(
+        db=db,
+        team_id=team_id,
+        user_id=data.user_id,
+        team_role=TeamMemberRole(data.team_role),
+    )
 
+    return {
+        "id": str(membership.id),
+        "team_id": str(membership.team_id),
+        "user_id": str(membership.user_id),
+        "team_role": membership.team_role.value,
+    }
 
-@router.delete("/teams/{team_id}/members/{user_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Remove a Fellow from a Team")
-def remove_team_member(team_id: str, user_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    membership = db.scalar(select(TeamMembership).where(TeamMembership.team_id == team_id, TeamMembership.user_id == user_id))
-    if not membership:
-        raise _not_found("Team membership", f"team={team_id}/user={user_id}")
-    db.delete(membership)
-    db.commit()
+@router.delete(
+    "/teams/{team_id}/members/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove a Fellow from a Team",
+)
+def remove_team_member(
+    team_id: UUID,
+    user_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    remove_member_from_team(
+        db=db,
+        team_id=team_id,
+        user_id=user_id,
+    )
+@router.put(
+    "/teams/{team_id}/lead",
+    summary="Assign or change Team Lead",
+)
+def change_team_lead(
+    team_id: UUID,
+    data: TeamLeadAssign,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    membership = set_team_lead(
+        db=db,
+        team_id=team_id,
+        user_id=data.user_id,
+    )
 
+    return {
+        "team_id": str(membership.team_id),
+        "user_id": str(membership.user_id),
+        "team_role": membership.team_role.value,
+    }
 
 # ===========================================================================
 # RESOURCES CRUD

@@ -7,7 +7,7 @@ Covers: Programs, Cohorts, Phases, Weeks, Sessions, Teams/Memberships, Resources
 from __future__ import annotations
 
 from datetime import date, datetime
-from typing import Optional
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -217,6 +217,8 @@ class SessionResponse(BaseModel):
     meeting_provider: Optional[str] = None
     google_meet_space_name: Optional[str] = None
     google_meet_code: Optional[str] = None
+    google_calendar_event_id: Optional[str] = None
+    google_calendar_event_url: Optional[str] = None
 
     status: str
     sequence: int
@@ -249,8 +251,11 @@ class TeamUpdate(BaseModel):
 
 class TeamMemberAdd(BaseModel):
     user_id: UUID
-    team_role: str = "member"
+    team_role: Literal["lead", "member"] = "member"
 
+
+class TeamLeadAssign(BaseModel):
+    user_id: UUID
 
 class TeamMemberResponse(BaseModel):
     id: UUID
@@ -279,8 +284,9 @@ class TeamResponse(BaseModel):
 
 
 class TeamDetailResponse(TeamResponse):
-    members: list[TeamMemberResponse] = []
-
+    members: list[TeamMemberResponse] = Field(
+        default_factory=list
+    )
 
 # ---------------------------------------------------------------------------
 # Resources
