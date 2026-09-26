@@ -16,13 +16,11 @@ if str(backend_dir) not in sys.path:
 from sqlalchemy import select
 from app.db.session import SessionLocal
 from app.models.cohort import Cohort, CohortStatus
-from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.phase import Phase
 from app.models.program import Program
 from app.models.resource import Resource, ResourceType
 from app.models.session import Session, SessionStatus, SessionType
 from app.models.team import Team, TeamMembership, TeamMemberRole
-from app.models.user import User, UserRole
 from app.models.week import Week
 
 
@@ -149,10 +147,10 @@ def seed_dlif():
             {
                 "session_number": 0,
                 "session_type": SessionType.INDUCTION,
-                "title": "DLIF Onboarding & Program Setup",
+                "title": "Induction",
                 "description": "Welcome to DLIF, platform onboarding, squad assignments, and fellowship kickoff.",
                 "sequence": 0,
-                "week_number": 1,
+                "week_number": None,
                 "status": SessionStatus.COMPLETED,
                 "start_at": today_start - timedelta(days=3),
                 "end_at": today_start - timedelta(days=3) + timedelta(hours=1, minutes=30),
@@ -215,7 +213,7 @@ def seed_dlif():
             {
                 "session_number": 5,
                 "session_type": SessionType.LEARN_WORK,
-                "title": "What Would Have to Be True? (WWHTBT)",
+                "title": "What Would Have to Be True?",
                 "description": "Competitive landscape, benchmarking, and hypothesis conditions.",
                 "sequence": 5,
                 "week_number": 2,
@@ -327,12 +325,33 @@ def seed_dlif():
                     Session.session_number == s_spec["session_number"],
                 )
             ).first()
-            target_week = weeks_map.get(s_spec["week_number"])
+            target_week = (
+                weeks_map.get(s_spec["week_number"])
+                if s_spec["week_number"] is not None
+                else None
+            )
             if not session:
+                is_unlocked=(
+                    s_spec["session_number"] <= 2
+                ),
+
+                unlock_at=(
+                    now
+                    if s_spec["session_number"] <= 2
+                    else None
+                ),
                 session = Session(
                     cohort_id=cohort.id,
                     phase_id=phase.id,
                     week_id=target_week.id if target_week else None,
+                    is_unlocked=(
+                        s_spec["session_number"] <= 2
+                    ),
+                    unlock_at=(
+                        now
+                        if s_spec["session_number"] <= 2
+                        else None
+                    ),
                     session_number=s_spec["session_number"],
                     session_type=s_spec["session_type"],
                     title=s_spec["title"],
@@ -347,77 +366,38 @@ def seed_dlif():
                 db.add(session)
                 print(f"  + Created Session {session.session_number}: {session.title}")
             else:
-                # Update status and dates to keep fresh
+                # Keep existing seeded Sessions aligned with the
+                # canonical DISCOVER curriculum structure.
+                session.phase_id = phase.id
+
+                session.week_id = (
+                    target_week.id
+                    if target_week
+                    else None
+                )
+
                 session.title = s_spec["title"]
                 session.description = s_spec["description"]
                 session.session_type = s_spec["session_type"]
+
+                session.start_at = s_spec["start_at"]
+                session.end_at = s_spec["end_at"]
+
                 session.status = s_spec["status"]
+
                 session.meeting_url = s_spec["meeting_url"]
                 session.recording_url = s_spec["recording_url"]
+
+                session.sequence = s_spec["sequence"]
+
+                print(
+                    f"  * Synced Session "
+                    f"{session.session_number}: "
+                    f"{session.title}"
+                )
                 print(f"  * Synced Session {session.session_number}: {session.title}")
 
-        # 6. Auto-enroll existing Fellow/Student users
-        fellow_users = db.scalars(
-            select(User).where(User.role.in_([UserRole.FELLOW, UserRole.STUDENT]))
-        ).all()
-        for u in fellow_users:
-            enrollment = db.scalars(
-                select(Enrollment).where(
-                    Enrollment.user_id == u.id,
-                    Enrollment.cohort_id == cohort.id,
-                )
-            ).first()
-            if not enrollment:
-                enrollment = Enrollment(
-                    user_id=u.id,
-                    cohort_id=cohort.id,
-                    enrollment_status=EnrollmentStatus.ACTIVE,
-                )
-                db.add(enrollment)
-                print(f"  + Enrolled Fellow: {u.first_name} {u.last_name} ({u.email}) in {cohort.code}")
-
-        # 7. Seed a demonstration Team (Cikitsa India challenge) and assign all Fellows
-        team = db.scalars(
-            select(Team).where(
-                Team.cohort_id == cohort.id,
-                Team.name == "Alpha-4",
-            )
-        ).first()
-        if not team:
-            team = Team(
-                cohort_id=cohort.id,
-                name="Alpha-4",
-                company_challenge="Cikitsa India — AI-powered Rural Healthcare Diagnostics",
-                company_name="Cikitsa India",
-                is_active=True,
-            )
-            db.add(team)
-            db.flush()
-            print(f"  + Created Team: {team.name} ({team.company_name})")
-        else:
-            print(f"  * Existing Team: {team.name}")
-
-        # Assign all enrolled Fellows to team (idempotent)
-        db.flush()
-        for u in fellow_users:
-            existing_member = db.scalars(
-                select(TeamMembership).where(
-                    TeamMembership.team_id == team.id,
-                    TeamMembership.user_id == u.id,
-                )
-            ).first()
-            if not existing_member:
-                role = TeamMemberRole.LEAD if fellow_users.index(u) == 0 else TeamMemberRole.MEMBER
-                membership = TeamMembership(
-                    team_id=team.id,
-                    cohort_id=cohort.id,
-                    user_id=u.id,
-                    team_role=role,
-                )
-                db.add(membership)
-                print(f"  + Assigned {u.first_name} {u.last_name} to Team {team.name}")
-
-        # 8. Seed DISCOVER Phase Resources
+        # 6. Seed DISCOVER Phase Resources
         resources_spec = [
             {
                 "title": "DLIF Fellow Handbook — DISCOVER (v1.0, Sept 2026)",

@@ -569,3 +569,208 @@ def test_unlocked_session_content_is_available(
     assert data["submission_enabled"] is True
     assert data["has_recording"] is True
     assert data["has_transcript"] is True
+
+def test_new_fellow_in_cohort_receives_existing_cohort_sessions(
+    db: Session,
+    student_client: TestClient,
+    setup_fellow_cohort,
+):
+    """
+    A Fellow enrolled after Sessions already exist must
+    automatically receive all Sessions for that Cohort.
+    No per-Session assignment is required.
+    """
+    cohort = setup_fellow_cohort["cohort"]
+    phase = setup_fellow_cohort["phase"]
+
+    new_fellow = User(
+        first_name="New",
+        last_name="Fellow",
+        email=f"new_fellow_{uuid4().hex[:8]}@degreelabs.com",
+        password_hash=hash_password("Pass12345!"),
+        role=UserRole.FELLOW,
+        account_status=AccountStatus.ACTIVE,
+        is_active=True,
+    )
+
+    db.add(new_fellow)
+    db.flush()
+
+    enrollment = Enrollment(
+        user_id=new_fellow.id,
+        cohort_id=cohort.id,
+        enrollment_status=EnrollmentStatus.ACTIVE,
+    )
+
+    db.add(enrollment)
+    db.commit()
+    db.refresh(new_fellow)
+
+    expected_sessions = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.phase_id == phase.id,
+        )
+        .all()
+    )
+
+    expected_ids = {
+        str(session.id)
+        for session in expected_sessions
+    }
+
+    token = create_access_token(
+        subject=str(new_fellow.id),
+        role=new_fellow.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        "/api/v1/fellow/discover/weeks",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    weeks = response.json()
+
+    received_ids = {
+        session["id"]
+        for week in weeks
+        for session in week["sessions"]
+    }
+
+    assert received_ids == expected_ids
+
+    # Cleanup
+    db.delete(enrollment)
+    db.delete(new_fellow)
+    db.commit()
+
+def test_fellow_only_receives_sessions_from_active_cohort(
+    db: Session,
+    student_client: TestClient,
+    setup_fellow_cohort,
+):
+    """
+    Sessions belonging to Cohort A must never appear
+    in the Session list of a Fellow enrolled in Cohort B.
+    """
+    program = setup_fellow_cohort["program"]
+    phase = setup_fellow_cohort["phase"]
+
+    other_cohort = Cohort(
+        program_id=program.id,
+        name="DLIF Cohort Isolation Test",
+        code=f"TEST-{uuid4().hex[:8]}",
+        status=CohortStatus.ACTIVE,
+    )
+
+    db.add(other_cohort)
+    db.flush()
+
+    other_fellow = User(
+        first_name="Other",
+        last_name="Fellow",
+        email=f"other_fellow_{uuid4().hex[:8]}@degreelabs.com",
+        password_hash=hash_password("Pass12345!"),
+        role=UserRole.FELLOW,
+        account_status=AccountStatus.ACTIVE,
+        is_active=True,
+    )
+
+    db.add(other_fellow)
+    db.flush()
+
+    other_enrollment = Enrollment(
+        user_id=other_fellow.id,
+        cohort_id=other_cohort.id,
+        enrollment_status=EnrollmentStatus.ACTIVE,
+    )
+
+    db.add(other_enrollment)
+
+    week_1 = (
+        db.query(Week)
+        .filter(
+            Week.phase_id == phase.id,
+            Week.week_number == 1,
+        )
+        .one()
+    )
+
+    other_session = DBSession(
+        cohort_id=other_cohort.id,
+        phase_id=phase.id,
+        week_id=week_1.id,
+        session_number=1,
+        session_type=SessionType.LEARN_WORK,
+        title="Cohort B Session",
+        start_at=datetime.now(timezone.utc),
+        end_at=(
+            datetime.now(timezone.utc)
+            + timedelta(hours=1)
+        ),
+        status=SessionStatus.SCHEDULED,
+        sequence=1,
+        is_unlocked=True,
+        unlock_at=datetime.now(timezone.utc),
+    )
+
+    db.add(other_session)
+    db.commit()
+
+    cohort_a_session_ids = {
+        str(session.id)
+        for session in (
+            db.query(DBSession)
+            .filter(
+                DBSession.cohort_id
+                == setup_fellow_cohort["cohort"].id
+            )
+            .all()
+        )
+    }
+
+    token = create_access_token(
+        subject=str(other_fellow.id),
+        role=other_fellow.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        "/api/v1/fellow/discover/weeks",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    weeks = response.json()
+
+    received_ids = {
+        session["id"]
+        for week in weeks
+        for session in week["sessions"]
+    }
+
+    # Fellow B sees their own Cohort Session.
+    assert str(other_session.id) in received_ids
+
+    # Fellow B sees nothing from Cohort A.
+    assert received_ids.isdisjoint(
+        cohort_a_session_ids
+    )
+
+    # Cleanup
+    db.delete(other_session)
+    db.delete(other_enrollment)
+    db.delete(other_fellow)
+    db.delete(other_cohort)
+    db.commit()

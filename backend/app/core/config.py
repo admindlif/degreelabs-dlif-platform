@@ -51,6 +51,9 @@ class Settings(BaseSettings):
     google_calendar_enabled: bool = False
     google_calendar_timezone: str = "Asia/Kolkata"
 
+    google_service_account_file: str | None = None
+    google_workspace_organizer_email: str | None = None
+
     model_config = SettingsConfigDict(
         env_file=(
             str(Path(__file__).resolve().parent.parent.parent / ".env"),

@@ -10,6 +10,7 @@ from app.core.config import settings
 
 SCOPES = [
     "https://www.googleapis.com/auth/meetings.space.created",
+    "https://www.googleapis.com/auth/calendar.events",
 ]
 
 

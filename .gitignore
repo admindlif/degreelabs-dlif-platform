@@ -105,5 +105,6 @@ Thumbs.db
 
 
 # Google credentials - NEVER COMMIT
+backend/credentials/
 backend/credentials/google-meet-token.json
 backend/credentials/google-oauth-client.json

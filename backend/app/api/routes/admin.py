@@ -55,8 +55,15 @@ from app.schemas.auth import (
 )
 from app.services.auth import DuplicateEmailError, admin_create_fellow
 from app.services.invitation import send_invitation_email
-from app.services.google_meet import create_meeting_space
+from app.services.google_calendar import (
+    create_calendar_event_with_meet,
+)
 
+from app.services.google_calendar import (
+    create_calendar_event_with_meet,
+    update_calendar_event,
+    delete_calendar_event,
+)
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
@@ -487,7 +494,8 @@ def remove_fellow_from_cohort(
             f"{cohort_id}/{fellow_id}",
         )
 
-        team_membership = db.scalar(
+    # Fellow must be removed from their Team first.
+    team_membership = db.scalar(
         select(TeamMembership).where(
             TeamMembership.cohort_id == cohort_id,
             TeamMembership.user_id == fellow_id,
@@ -689,7 +697,7 @@ def list_sessions(
 @router.post(
     "/sessions",
     status_code=status.HTTP_201_CREATED,
-    summary="Create Session with Google Meet",
+    summary="Create Session with Google Calendar and Meet",
 )
 def create_session(
     data: SessionCreate,
@@ -701,7 +709,9 @@ def create_session(
         )
     ),
 ):
-    # Date/time must be provided
+    # ---------------------------------------------------------
+    # 1. Validate schedule
+    # ---------------------------------------------------------
     if not data.start_at or not data.end_at:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -714,18 +724,132 @@ def create_session(
             detail="End date/time must be after start date/time.",
         )
 
-    # Google Meet must be enabled
-    if not settings.google_meet_enabled:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Google Meet integration is disabled.",
+    # ---------------------------------------------------------
+    # 2. Validate Cohort
+    # ---------------------------------------------------------
+    cohort = db.scalar(
+        select(Cohort).where(
+            Cohort.id == data.cohort_id
+        )
+    )
+
+    if not cohort:
+        raise _not_found(
+            "Cohort",
+            data.cohort_id,
         )
 
+    # ---------------------------------------------------------
+    # 3. Validate Phase
+    # ---------------------------------------------------------
+    phase = db.scalar(
+        select(Phase).where(
+            Phase.id == data.phase_id,
+            Phase.program_id == cohort.program_id,
+        )
+    )
+
+    if not phase:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Selected Phase does not belong "
+                "to the Cohort's Program."
+            ),
+        )
+
+    # ---------------------------------------------------------
+    # 4. Validate Week when provided
+    # ---------------------------------------------------------
+    if data.week_id:
+        week = db.scalar(
+            select(Week).where(
+                Week.id == data.week_id,
+                Week.phase_id == data.phase_id,
+            )
+        )
+
+        if not week:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Selected Week does not belong "
+                    "to the selected Phase."
+                ),
+            )
+
+    # ---------------------------------------------------------
+    # 5. Google Calendar must be enabled
+    # ---------------------------------------------------------
+    if not settings.google_calendar_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Calendar integration is disabled.",
+        )
+
+    # ---------------------------------------------------------
+    # 6. Prevent duplicate Session number in Cohort
+    # ---------------------------------------------------------
+    existing_session = db.scalar(
+        select(DBSession).where(
+            DBSession.cohort_id == data.cohort_id,
+            DBSession.session_number
+            == data.session_number,
+        )
+    )
+
+    if existing_session:
+        raise _conflict(
+            f"Session {data.session_number} already exists "
+            f"for cohort '{cohort.name}'."
+        )
+
+    # ---------------------------------------------------------
+    # 7. Collect Fellows enrolled in this Cohort
+    # ---------------------------------------------------------
+    attendee_emails = list(
+        db.scalars(
+            select(User.email)
+            .join(
+                Enrollment,
+                Enrollment.user_id == User.id,
+            )
+            .where(
+                Enrollment.cohort_id
+                == data.cohort_id,
+                Enrollment.enrollment_status
+                == EnrollmentStatus.ACTIVE,
+                User.role.in_(
+                    [
+                        UserRole.FELLOW,
+                        UserRole.STUDENT,
+                    ]
+                ),
+                User.is_active.is_(True),
+            )
+            .order_by(User.email)
+        ).all()
+    )
+
+    # ---------------------------------------------------------
+    # 8. Build Session payload
+    # ---------------------------------------------------------
     payload = data.model_dump()
 
-    # Initial DISCOVER rollout:
-    # Sessions 0-2 are available immediately.
-    # Session 3+ stays locked until Admin explicitly unlocks it.
+    payload["session_type"] = SessionType(
+        payload["session_type"]
+    )
+
+    payload["status"] = SessionStatus(
+        payload["status"]
+    )
+
+    # Meet URL is always generated by Google Calendar.
+    payload["meeting_url"] = None
+
+    # Manual access rule:
+    # Sessions 0-2 initially unlocked.
+    # Session 3+ locked until Admin explicitly unlocks.
     if data.session_number <= 2:
         payload["is_unlocked"] = True
         payload["unlock_at"] = datetime.now(
@@ -735,88 +859,115 @@ def create_session(
         payload["is_unlocked"] = False
         payload["unlock_at"] = None
 
-    # Default Session unlock behaviour.
-    #
-    # Initial rollout:
-    # Sessions 0-2 are available immediately.
-    # Session 3+ unlock when the Session starts,
-    # unless Admin supplied an explicit unlock_at.
-    if payload.get("unlock_at") is None:
-        if data.session_number <= 2:
-            payload["unlock_at"] = datetime.now(
-                timezone.utc
+    session = DBSession(**payload)
+
+    db.add(session)
+
+    try:
+        # Ensure DB constraints are checked before
+        # creating an external Calendar event.
+        db.flush()
+
+        # -----------------------------------------------------
+        # 9. Create Calendar event + Google Meet
+        #    and email Cohort Fellows.
+        # -----------------------------------------------------
+        calendar_event = (
+            create_calendar_event_with_meet(
+                title=session.title,
+                description=session.description,
+                start_at=session.start_at,
+                end_at=session.end_at,
+                attendee_emails=attendee_emails,
             )
-        else:
-            payload["unlock_at"] = data.start_at
-
-        payload["session_type"] = SessionType(
-            payload["session_type"]
         )
 
-        payload["status"] = SessionStatus(
-            payload["status"]
+        # -----------------------------------------------------
+        # 10. Save Google metadata
+        # -----------------------------------------------------
+        session.meeting_provider = (
+            "google_calendar"
         )
 
-        # Admin never enters the Meet URL manually
-        payload["meeting_url"] = None
+        session.meeting_url = (
+            calendar_event["meeting_url"]
+        )
 
-        session = DBSession(**payload)
+        session.google_meet_code = (
+            calendar_event["meeting_code"]
+        )
 
-        db.add(session)
+        session.google_calendar_event_id = (
+            calendar_event["event_id"]
+        )
 
-        try:
-            db.flush()
+        session.google_calendar_event_url = (
+            calendar_event["calendar_url"]
+        )
 
-            # Create Google Meet automatically
-            meet = create_meeting_space()
+        db.commit()
+        db.refresh(session)
 
-            session.meeting_provider = "google_meet"
+    except Exception as exc:
+        db.rollback()
 
-            session.meeting_url = meet["meeting_url"]
-
-            session.google_meet_space_name = meet[
-                "space_name"
-            ]
-
-            session.google_meet_code = meet[
-                "meeting_code"
-            ]
-
-            db.commit()
-            db.refresh(session)
-
-        except Exception as exc:
-            db.rollback()
-
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail=(
-                    "Unable to create Google Meet session. "
-                    f"{str(exc)}"
-                ),
-            ) from exc
-
-        return {
-            "id": str(session.id),
-            "title": session.title,
-            "session_number": session.session_number,
-            "start_at": (
-                session.start_at.isoformat()
-                if session.start_at
-                else None
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Unable to create Google Calendar "
+                "event and Meet link. "
+                f"{str(exc)}"
             ),
-            "end_at": (
-                session.end_at.isoformat()
-                if session.end_at
-                else None
-            ),
-            "meeting_provider": session.meeting_provider,
-            "meeting_url": session.meeting_url,
-            "google_meet_space_name": session.google_meet_space_name,
-            "google_meet_code": session.google_meet_code,
-            "status": session.status.value,
-        }
+        ) from exc
 
+    return {
+        "id": str(session.id),
+
+        "cohort_id": str(session.cohort_id),
+
+        "title": session.title,
+        "session_number": session.session_number,
+
+        "start_at": (
+            session.start_at.isoformat()
+            if session.start_at
+            else None
+        ),
+
+        "end_at": (
+            session.end_at.isoformat()
+            if session.end_at
+            else None
+        ),
+
+        "is_unlocked": session.is_unlocked,
+
+        "meeting_provider": (
+            session.meeting_provider
+        ),
+
+        "meeting_url": (
+            session.meeting_url
+        ),
+
+        "google_meet_code": (
+            session.google_meet_code
+        ),
+
+        "google_calendar_event_id": (
+            session.google_calendar_event_id
+        ),
+
+        "google_calendar_event_url": (
+            session.google_calendar_event_url
+        ),
+
+        "attendee_count": len(
+            attendee_emails
+        ),
+
+        "status": session.status.value,
+    }
 @router.get(
     "/sessions/{session_id}",
     summary="Get a Session by ID",
@@ -928,22 +1079,178 @@ def get_session(
         "sequence": session.sequence,
     }
 
-@router.put("/sessions/{session_id}", summary="Update a Session")
-def update_session(session_id: str, data: SessionUpdate, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    session = db.scalar(select(DBSession).where(DBSession.id == session_id))
-    if not session:
-        raise _not_found("Session", session_id)
-    updates = data.model_dump(exclude_none=True)
-    if "session_type" in updates:
-        updates["session_type"] = SessionType(updates["session_type"])
-    if "status" in updates:
-        updates["status"] = SessionStatus(updates["status"])
-    for field, value in updates.items():
-        setattr(session, field, value)
-    db.commit()
-    db.refresh(session)
-    return {"id": str(session.id), "title": session.title, "status": session.status.value}
+@router.put(
+    "/sessions/{session_id}",
+    summary="Update a Session",
+)
+def update_session(
+    session_id: str,
+    data: SessionUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    session = db.scalar(
+        select(DBSession).where(
+            DBSession.id == session_id
+        )
+    )
 
+    if not session:
+        raise _not_found(
+            "Session",
+            session_id,
+        )
+
+    updates = data.model_dump(
+        exclude_none=True
+    )
+
+    if "session_type" in updates:
+        updates["session_type"] = SessionType(
+            updates["session_type"]
+        )
+
+    if "status" in updates:
+        updates["status"] = SessionStatus(
+            updates["status"]
+        )
+
+    # Apply changes in memory first.
+    for field, value in updates.items():
+        setattr(
+            session,
+            field,
+            value,
+        )
+
+    # Validate resulting schedule.
+    if not session.start_at or not session.end_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Start date/time and end date/time "
+                "are required."
+            ),
+        )
+
+    if session.end_at <= session.start_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "End date/time must be after "
+                "start date/time."
+            ),
+        )
+
+    # Get currently active Fellows from this Session's Cohort.
+    attendee_emails = list(
+        db.scalars(
+            select(User.email)
+            .join(
+                Enrollment,
+                Enrollment.user_id == User.id,
+            )
+            .where(
+                Enrollment.cohort_id
+                == session.cohort_id,
+                Enrollment.enrollment_status
+                == EnrollmentStatus.ACTIVE,
+                User.role.in_(
+                    [
+                        UserRole.FELLOW,
+                        UserRole.STUDENT,
+                    ]
+                ),
+                User.is_active.is_(True),
+            )
+            .order_by(User.email)
+        ).all()
+    )
+
+    try:
+        # Existing Calendar-backed Session:
+        # update the same event instead of creating another.
+        if session.google_calendar_event_id:
+            if not settings.google_calendar_enabled:
+                raise RuntimeError(
+                    "Google Calendar integration "
+                    "is disabled."
+                )
+
+            calendar_event = update_calendar_event(
+                event_id=(
+                    session.google_calendar_event_id
+                ),
+                title=session.title,
+                description=session.description,
+                start_at=session.start_at,
+                end_at=session.end_at,
+                attendee_emails=attendee_emails,
+            )
+
+            session.meeting_url = (
+                calendar_event["meeting_url"]
+                or session.meeting_url
+            )
+
+            session.google_meet_code = (
+                calendar_event["meeting_code"]
+                or session.google_meet_code
+            )
+
+            session.google_calendar_event_url = (
+                calendar_event["calendar_url"]
+                or session.google_calendar_event_url
+            )
+
+        db.commit()
+        db.refresh(session)
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Unable to update Session and "
+                "Google Calendar event. "
+                f"{str(exc)}"
+            ),
+        ) from exc
+
+    return {
+        "id": str(session.id),
+        "title": session.title,
+
+        "start_at": (
+            session.start_at.isoformat()
+            if session.start_at
+            else None
+        ),
+
+        "end_at": (
+            session.end_at.isoformat()
+            if session.end_at
+            else None
+        ),
+
+        "meeting_url": session.meeting_url,
+
+        "google_calendar_event_id": (
+            session.google_calendar_event_id
+        ),
+
+        "google_calendar_event_url": (
+            session.google_calendar_event_url
+        ),
+
+        "status": session.status.value,
+    }
 @router.put(
     "/sessions/{session_id}/unlock",
     response_model=SessionAccessStateResponse,
@@ -1027,13 +1334,62 @@ def lock_session(
     )
 
 
-@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a Session")
-def delete_session(session_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    session = db.scalar(select(DBSession).where(DBSession.id == session_id))
+@router.delete(
+    "/sessions/{session_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a Session",
+)
+def delete_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    session = db.scalar(
+        select(DBSession).where(
+            DBSession.id == session_id
+        )
+    )
+
     if not session:
-        raise _not_found("Session", session_id)
-    db.delete(session)
-    db.commit()
+        raise _not_found(
+            "Session",
+            session_id,
+        )
+
+    try:
+        # Cancel the Calendar event first.
+        # sendUpdates="all" in the service sends
+        # cancellation notifications to attendees.
+        if session.google_calendar_event_id:
+            if not settings.google_calendar_enabled:
+                raise RuntimeError(
+                    "Google Calendar integration "
+                    "is disabled."
+                )
+
+            delete_calendar_event(
+                session.google_calendar_event_id
+            )
+
+        db.delete(session)
+        db.commit()
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Unable to delete Session and "
+                "Google Calendar event. "
+                f"{str(exc)}"
+            ),
+        ) from exc
 
 
 # ===========================================================================

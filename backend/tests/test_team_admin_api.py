@@ -3,7 +3,7 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from app.core.security import (
     create_access_token,
@@ -560,3 +560,274 @@ def test_fellow_cannot_unlock_session(
             db.delete(existing_program)
 
         db.commit()
+def test_session_creation_sends_calendar_invite_only_to_selected_cohort(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+    monkeypatch,
+):
+    program = create_program(db)
+
+    cohort_a = create_cohort(
+        db,
+        program,
+        "CALENDAR-A",
+    )
+
+    cohort_b = create_cohort(
+        db,
+        program,
+        "CALENDAR-B",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    fellow_a = create_fellow(
+        db,
+        cohort_a,
+        "calendar-a",
+    )
+
+    fellow_b = create_fellow(
+        db,
+        cohort_b,
+        "calendar-b",
+    )
+
+    captured = {}
+
+    def fake_create_calendar_event_with_meet(
+        *,
+        title,
+        description,
+        start_at,
+        end_at,
+        attendee_emails,
+    ):
+        captured["title"] = title
+        captured["attendee_emails"] = attendee_emails
+
+        return {
+            "event_id": "test-calendar-event-123",
+            "calendar_url": (
+                "https://calendar.google.com/test-event"
+            ),
+            "meeting_url": (
+                "https://meet.google.com/test-meet"
+            ),
+            "meeting_code": "test-meet",
+        }
+
+    monkeypatch.setattr(
+        "app.api.routes.admin."
+        "create_calendar_event_with_meet",
+        fake_create_calendar_event_with_meet,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.settings."
+        "google_calendar_enabled",
+        True,
+    )
+
+    start_at = (
+        datetime.now(timezone.utc)
+        + timedelta(days=1)
+    )
+
+    try:
+        response = client.post(
+            "/api/v1/admin/sessions",
+            headers=admin_headers,
+            json={
+                "cohort_id": str(cohort_a.id),
+                "phase_id": str(phase.id),
+                "week_id": None,
+                "session_number": 8,
+                "session_type": "learn_work",
+                "title": "Execution Architecture",
+                "description": (
+                    "Calendar distribution test."
+                ),
+                "start_at": start_at.isoformat(),
+                "end_at": (
+                    start_at
+                    + timedelta(hours=2)
+                ).isoformat(),
+                "status": "scheduled",
+                "sequence": 8,
+            },
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["cohort_id"] == str(
+            cohort_a.id
+        )
+
+        assert data["attendee_count"] == 1
+
+        assert captured["attendee_emails"] == [
+            fellow_a.email
+        ]
+
+        assert fellow_b.email not in (
+            captured["attendee_emails"]
+        )
+
+    finally:
+        cleanup(
+            db,
+            users=[
+                fellow_a,
+                fellow_b,
+            ],
+            programs=[program],
+        )
+def test_session_creation_saves_google_calendar_metadata_and_lock_state(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+    monkeypatch,
+):
+    program = create_program(db)
+
+    cohort = create_cohort(
+        db,
+        program,
+        "CALENDAR-META",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    fellow = create_fellow(
+        db,
+        cohort,
+        "calendar-meta",
+    )
+
+    def fake_create_calendar_event_with_meet(
+        *,
+        title,
+        description,
+        start_at,
+        end_at,
+        attendee_emails,
+    ):
+        return {
+            "event_id": "event-meta-456",
+            "calendar_url": (
+                "https://calendar.google.com/"
+                "event-meta-456"
+            ),
+            "meeting_url": (
+                "https://meet.google.com/"
+                "abc-defg-hij"
+            ),
+            "meeting_code": "abc-defg-hij",
+        }
+
+    monkeypatch.setattr(
+        "app.api.routes.admin."
+        "create_calendar_event_with_meet",
+        fake_create_calendar_event_with_meet,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.settings."
+        "google_calendar_enabled",
+        True,
+    )
+
+    start_at = (
+        datetime.now(timezone.utc)
+        + timedelta(days=2)
+    )
+
+    try:
+        response = client.post(
+            "/api/v1/admin/sessions",
+            headers=admin_headers,
+            json={
+                "cohort_id": str(cohort.id),
+                "phase_id": str(phase.id),
+                "week_id": None,
+                "session_number": 7,
+                "session_type": "learn_work",
+                "title": "Integrated Strategy Choices",
+                "description": (
+                    "Google metadata test."
+                ),
+                "start_at": start_at.isoformat(),
+                "end_at": (
+                    start_at
+                    + timedelta(hours=2)
+                ).isoformat(),
+                "status": "scheduled",
+                "sequence": 7,
+            },
+        )
+
+        assert response.status_code == 201
+
+        data = response.json()
+
+        assert data["meeting_url"] == (
+            "https://meet.google.com/"
+            "abc-defg-hij"
+        )
+
+        assert (
+            data["google_calendar_event_id"]
+            == "event-meta-456"
+        )
+
+        # Session 7 must remain locked even though
+        # it has a start date/time.
+        assert data["is_unlocked"] is False
+
+        session = (
+            db.query(DBSession)
+            .filter(
+                DBSession.cohort_id == cohort.id,
+                DBSession.session_number == 7,
+            )
+            .one()
+        )
+
+        assert (
+            session.google_calendar_event_id
+            == "event-meta-456"
+        )
+
+        assert session.google_calendar_event_url == (
+            "https://calendar.google.com/"
+            "event-meta-456"
+        )
+
+        assert session.meeting_url == (
+            "https://meet.google.com/"
+            "abc-defg-hij"
+        )
+
+        assert session.google_meet_code == (
+            "abc-defg-hij"
+        )
+
+        assert session.is_unlocked is False
+        assert session.unlock_at is None
+
+    finally:
+        cleanup(
+            db,
+            users=[fellow],
+            programs=[program],
+        )
