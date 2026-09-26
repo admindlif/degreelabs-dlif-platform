@@ -36,11 +36,17 @@ class Settings(BaseSettings):
     smtp_password: str | None = None
     smtp_use_tls: bool = True
 
+
     # Google Meet
     google_meet_enabled: bool = False
-    google_meet_base_url: str
-    google_service_account_file: str | None = None
-    google_workspace_organizer_email: str | None = None
+    google_meet_base_url: str = "https://meet.googleapis.com/v2"
+
+    google_oauth_client_file: str | None = None
+    google_oauth_token_file: str | None = None
+
+    # Google Calendar
+    google_calendar_enabled: bool = False
+    google_calendar_timezone: str = "Asia/Kolkata"
 
     model_config = SettingsConfigDict(
         env_file=(

@@ -80,6 +80,7 @@ import { WeekModal } from "@/components/admin/week-modal";
 import { SessionModal } from "@/components/admin/session-modal";
 import { TeamModal } from "@/components/admin/team-modal";
 import { ResourceModal } from "@/components/admin/resource-modal";
+import { CohortFellowsModal } from "@/components/admin/cohort-fellows-modal";
 
 type NavTab =
   | "Dashboard"
@@ -124,6 +125,7 @@ export default function AdminHomePage() {
 
   const [cohorts, setCohorts] = React.useState<AdminCohort[]>([]);
   const [weeks, setWeeks] = React.useState<AdminWeek[]>([]);
+  const [sessions, setSessions] = React.useState<AdminSession[]>([]);
   const [teams, setTeams] = React.useState<AdminTeam[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -149,6 +151,12 @@ export default function AdminHomePage() {
     React.useState(false);
 
   const [selectedCohort, setSelectedCohort] =
+    React.useState<AdminCohort | null>(null);
+
+  const [showCohortFellowsModal, setShowCohortFellowsModal] =
+    React.useState(false);
+
+  const [selectedCohortForFellows, setSelectedCohortForFellows] =
     React.useState<AdminCohort | null>(null);
 
   const [showWeekModal, setShowWeekModal] =
@@ -186,6 +194,7 @@ export default function AdminHomePage() {
         phasesData,
         cohortsData,
         weeksData,
+        sessionsData,
         teamsData,
       ] = await Promise.all([
         getAdminStats().catch(() => null),
@@ -194,6 +203,7 @@ export default function AdminHomePage() {
         getAdminPhases().catch(() => []),
         getAdminCohorts().catch(() => []),
         getAdminWeeks().catch(() => []),
+        getAdminSessions().catch(() => []),
         getAdminTeams().catch(() => []),
       ]);
 
@@ -206,6 +216,7 @@ export default function AdminHomePage() {
       setPhases(phasesData);
       setCohorts(cohortsData);
       setWeeks(weeksData);
+      setSessions(sessionsData);
       setTeams(teamsData);
     } catch (err) {
       console.error("Failed to load admin data:", err);
@@ -1143,6 +1154,17 @@ export default function AdminHomePage() {
                         <button
                           type="button"
                           onClick={() => {
+                            setSelectedCohortForFellows(cohort);
+                            setShowCohortFellowsModal(true);
+                          }}
+                          className="px-3 py-1.5 rounded-lg bg-[var(--color-brand-blue)] text-white text-xs font-semibold"
+                        >
+                          Manage Fellows
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => {
                             setSelectedCohort(cohort);
                             setShowCohortModal(true);
                           }}
@@ -1525,6 +1547,154 @@ export default function AdminHomePage() {
             </div>
           )}
 
+          {/* SESSIONS */}
+          {activeTab === "Sessions" && (
+            <div className="space-y-6">
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-extrabold">
+                    Sessions
+                  </h2>
+
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    Create, schedule and manage Fellowship sessions.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedSession(null);
+                    setShowSessionModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Session
+                </button>
+              </div>
+
+              <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
+                <table className="w-full text-left text-xs">
+
+                  <thead className="bg-[var(--color-bg-canvas)] border-b">
+                    <tr>
+                      <th className="py-3 px-4">Session</th>
+                      <th className="py-3 px-4">Title</th>
+                      <th className="py-3 px-4">Week</th>
+                      <th className="py-3 px-4">Date / Time</th>
+                      <th className="py-3 px-4">Status</th>
+                      <th className="py-3 px-4 text-right">Actions</th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-[var(--color-border-default)]">
+
+                    {sessions.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={6}
+                          className="py-10 text-center text-[var(--color-text-muted)]"
+                        >
+                          No sessions created yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      sessions.map((session) => {
+                        const week = weeks.find(
+                          (w) => w.id === session.week_id
+                        );
+
+                        return (
+                          <tr key={session.id}>
+
+                            <td className="py-3 px-4 font-bold">
+                              Session {session.session_number}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="font-bold">
+                                {session.title}
+                              </div>
+
+                              <div className="text-[10px] text-[var(--color-text-muted)]">
+                                {session.session_type}
+                              </div>
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {week
+                                ? `Week ${week.week_number}`
+                                : "Session 0 / No Week"}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              {session.start_at
+                                ? new Date(
+                                  session.start_at
+                                ).toLocaleString()
+                                : "Schedule not announced"}
+                            </td>
+
+                            <td className="py-3 px-4 capitalize">
+                              {session.status}
+                            </td>
+
+                            <td className="py-3 px-4">
+                              <div className="flex justify-end gap-2">
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedSession(session);
+                                    setShowSessionModal(true);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border font-semibold"
+                                >
+                                  Edit
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (
+                                      !window.confirm(
+                                        `Delete "${session.title}"?`
+                                      )
+                                    ) {
+                                      return;
+                                    }
+
+                                    try {
+                                      await deleteSession(session.id);
+                                      await loadData();
+                                    } catch (err: any) {
+                                      window.alert(
+                                        err?.message ||
+                                        "Unable to delete session."
+                                      );
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold"
+                                >
+                                  Delete
+                                </button>
+
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })
+                    )}
+
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          )}
+
           {/* TAB 7: DEFAULT / SYSTEM SETTINGS */}
           {activeTab !== "Dashboard" &&
             activeTab !== "Fellows" &&
@@ -1714,6 +1884,38 @@ export default function AdminHomePage() {
           onSaved={async () => {
             setShowPhaseModal(false);
             setSelectedPhase(null);
+            await loadData();
+          }}
+        />
+      )}
+
+      {showSessionModal && (
+        <SessionModal
+          session={selectedSession}
+          cohorts={cohorts}
+          phases={phases}
+          weeks={weeks}
+          onClose={() => {
+            setShowSessionModal(false);
+            setSelectedSession(null);
+          }}
+          onSaved={async () => {
+            setShowSessionModal(false);
+            setSelectedSession(null);
+            await loadData();
+          }}
+        />
+      )}
+
+      {showCohortFellowsModal && selectedCohortForFellows && (
+        <CohortFellowsModal
+          cohort={selectedCohortForFellows}
+          fellows={fellows}
+          onClose={() => {
+            setShowCohortFellowsModal(false);
+            setSelectedCohortForFellows(null);
+          }}
+          onSaved={async () => {
             await loadData();
           }}
         />

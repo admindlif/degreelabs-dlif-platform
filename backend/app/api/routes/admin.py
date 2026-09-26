@@ -7,11 +7,13 @@ Only ADMIN and SUPER_ADMIN roles may access these endpoints.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from uuid import UUID
 
 from app.core.permissions import require_roles
+from app.core.config import settings
 from app.db.session import get_db
 from app.models.cohort import Cohort, CohortStatus
-from app.models.enrollment import Enrollment
+from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.phase import Phase
 from app.models.program import Program
 from app.models.resource import Resource, ResourceType
@@ -37,7 +39,7 @@ from app.schemas.auth import (
 )
 from app.services.auth import DuplicateEmailError, admin_create_fellow
 from app.services.invitation import send_invitation_email
-
+from app.services.google_meet import create_meeting_space
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -289,6 +291,188 @@ def delete_cohort(cohort_id: str, db: Session = Depends(get_db), _admin: User = 
     db.delete(cohort)
     db.commit()
 
+# ===========================================================================
+# COHORT FELLOWS / ENROLLMENTS
+# ===========================================================================
+
+
+@router.get(
+    "/cohorts/{cohort_id}/fellows",
+    summary="List Fellows enrolled in a Cohort",
+)
+def list_cohort_fellows(
+    cohort_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    cohort = db.scalar(
+        select(Cohort).where(Cohort.id == cohort_id)
+    )
+
+    if not cohort:
+        raise _not_found("Cohort", cohort_id)
+
+    rows = db.execute(
+        select(Enrollment, User)
+        .join(
+            User,
+            User.id == Enrollment.user_id,
+        )
+        .where(
+            Enrollment.cohort_id == cohort_id
+        )
+        .order_by(
+            User.first_name,
+            User.last_name,
+        )
+    ).all()
+
+    return [
+        {
+            "enrollment_id": str(enrollment.id),
+            "fellow_id": str(user.id),
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "email": user.email,
+            "account_status": user.account_status.value,
+            "enrollment_status": enrollment.enrollment_status.value,
+        }
+        for enrollment, user in rows
+    ]
+
+
+@router.post(
+    "/cohorts/{cohort_id}/fellows/{fellow_id}",
+    status_code=status.HTTP_201_CREATED,
+    summary="Enroll Fellow into Cohort",
+)
+def enroll_fellow_in_cohort(
+    cohort_id: UUID,
+    fellow_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    cohort = db.scalar(
+        select(Cohort).where(Cohort.id == cohort_id)
+    )
+
+    if not cohort:
+        raise _not_found("Cohort", cohort_id)
+
+    fellow = db.scalar(
+        select(User).where(
+            User.id == fellow_id,
+            User.role.in_(
+                [
+                    UserRole.FELLOW,
+                    UserRole.STUDENT,
+                ]
+            ),
+        )
+    )
+
+    if not fellow:
+        raise _not_found("Fellow", fellow_id)
+
+    # Prevent one Fellow from having two active cohorts.
+    other_active_enrollment = db.scalar(
+        select(Enrollment).where(
+            Enrollment.user_id == fellow_id,
+            Enrollment.cohort_id != cohort_id,
+            Enrollment.enrollment_status
+            == EnrollmentStatus.ACTIVE,
+        )
+    )
+
+    if other_active_enrollment:
+        other_cohort = db.scalar(
+            select(Cohort).where(
+                Cohort.id
+                == other_active_enrollment.cohort_id
+            )
+        )
+
+        raise _conflict(
+            f"Fellow is already actively enrolled in "
+            f"'{other_cohort.name if other_cohort else 'another cohort'}'."
+        )
+
+    existing = db.scalar(
+        select(Enrollment).where(
+            Enrollment.user_id == fellow_id,
+            Enrollment.cohort_id == cohort_id,
+        )
+    )
+
+    if existing:
+        existing.enrollment_status = (
+            EnrollmentStatus.ACTIVE
+        )
+        existing.completed_at = None
+
+        enrollment = existing
+
+    else:
+        enrollment = Enrollment(
+            user_id=fellow_id,
+            cohort_id=cohort_id,
+            enrollment_status=EnrollmentStatus.ACTIVE,
+        )
+
+        db.add(enrollment)
+
+    db.commit()
+    db.refresh(enrollment)
+
+    return {
+        "id": str(enrollment.id),
+        "fellow_id": str(fellow.id),
+        "cohort_id": str(cohort.id),
+        "enrollment_status": enrollment.enrollment_status.value,
+    }
+
+
+@router.delete(
+    "/cohorts/{cohort_id}/fellows/{fellow_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Remove Fellow from Cohort",
+)
+def remove_fellow_from_cohort(
+    cohort_id: UUID,
+    fellow_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    enrollment = db.scalar(
+        select(Enrollment).where(
+            Enrollment.cohort_id == cohort_id,
+            Enrollment.user_id == fellow_id,
+        )
+    )
+
+    if not enrollment:
+        raise _not_found(
+            "Enrollment",
+            f"{cohort_id}/{fellow_id}",
+        )
+
+    db.delete(enrollment)
+    db.commit()
 
 # ===========================================================================
 # WEEKS CRUD
@@ -355,27 +539,132 @@ def list_sessions(cohort_id: str | None = None, week_id: str | None = None, db: 
     if week_id:
         q = q.where(DBSession.week_id == week_id)
     sessions = db.scalars(q).all()
-    return [{"id": str(s.id), "cohort_id": str(s.cohort_id), "phase_id": str(s.phase_id), "week_id": str(s.week_id) if s.week_id else None, "session_number": s.session_number, "session_type": s.session_type.value if hasattr(s.session_type, "value") else str(s.session_type), "title": s.title, "description": s.description, "start_at": s.start_at.isoformat() if s.start_at else None, "end_at": s.end_at.isoformat() if s.end_at else None, "meeting_url": s.meeting_url, "recording_url": s.recording_url, "status": s.status.value if hasattr(s.status, "value") else str(s.status), "sequence": s.sequence} for s in sessions]
+    return [{"id": str(s.id), "cohort_id": str(s.cohort_id), "phase_id": str(s.phase_id), "week_id": str(s.week_id) if s.week_id else None, "session_number": s.session_number, "session_type": s.session_type.value if hasattr(s.session_type, "value") else str(s.session_type), "title": s.title, "description": s.description, "start_at": s.start_at.isoformat() if s.start_at else None, "end_at": s.end_at.isoformat() if s.end_at else None, "meeting_url": s.meeting_url, "meeting_provider": s.meeting_provider,
+"google_meet_code": s.google_meet_code,
+"google_calendar_event_id": s.google_calendar_event_id,
+"google_calendar_event_url": s.google_calendar_event_url,"recording_url": s.recording_url, "status": s.status.value if hasattr(s.status, "value") else str(s.status), "sequence": s.sequence} for s in sessions]
 
 
-@router.post("/sessions", status_code=status.HTTP_201_CREATED, summary="Create a Session")
-def create_session(data: SessionCreate, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
+@router.post(
+    "/sessions",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Session with Google Meet",
+)
+def create_session(
+    data: SessionCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    # Date/time must be provided
+    if not data.start_at or not data.end_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Start date/time and end date/time are required.",
+        )
+
+    if data.end_at <= data.start_at:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="End date/time must be after start date/time.",
+        )
+
+    # Google Meet must be enabled
+    if not settings.google_meet_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Google Meet integration is disabled.",
+        )
+
     payload = data.model_dump()
-    payload["session_type"] = SessionType(payload["session_type"])
-    payload["status"] = SessionStatus(payload["status"])
-    session = DBSession(**payload)
-    db.add(session)
-    db.commit()
-    db.refresh(session)
-    return {"id": str(session.id), "title": session.title, "session_number": session.session_number}
 
+    payload["session_type"] = SessionType(
+        payload["session_type"]
+    )
+
+    payload["status"] = SessionStatus(
+        payload["status"]
+    )
+
+    # Admin never enters the Meet URL manually
+    payload["meeting_url"] = None
+
+    session = DBSession(**payload)
+
+    db.add(session)
+
+    try:
+        db.flush()
+
+        # Create Google Meet automatically
+        meet = create_meeting_space()
+
+        session.meeting_provider = "google_meet"
+
+        session.meeting_url = meet["meeting_url"]
+
+        session.google_meet_space_name = meet[
+            "space_name"
+        ]
+
+        session.google_meet_code = meet[
+            "meeting_code"
+        ]
+
+        db.commit()
+        db.refresh(session)
+
+    except Exception as exc:
+        db.rollback()
+
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=(
+                "Unable to create Google Meet session. "
+                f"{str(exc)}"
+            ),
+        ) from exc
+
+    return {
+        "id": str(session.id),
+        "title": session.title,
+        "session_number": session.session_number,
+        "start_at": (
+            session.start_at.isoformat()
+            if session.start_at
+            else None
+        ),
+        "end_at": (
+            session.end_at.isoformat()
+            if session.end_at
+            else None
+        ),
+        "meeting_provider": session.meeting_provider,
+        "meeting_url": session.meeting_url,
+        "google_meet_space_name": session.google_meet_space_name,
+        "google_meet_code": session.google_meet_code,
+        "status": session.status.value,
+    }
 
 @router.get("/sessions/{session_id}", summary="Get a Session by ID")
 def get_session(session_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
     session = db.scalar(select(DBSession).where(DBSession.id == session_id))
     if not session:
         raise _not_found("Session", session_id)
-    return {"id": str(session.id), "cohort_id": str(session.cohort_id), "phase_id": str(session.phase_id), "week_id": str(session.week_id) if session.week_id else None, "session_number": session.session_number, "session_type": session.session_type.value if hasattr(session.session_type, "value") else str(session.session_type), "title": session.title, "description": session.description, "start_at": session.start_at.isoformat(), "end_at": session.end_at.isoformat(), "meeting_url": session.meeting_url, "recording_url": session.recording_url, "status": session.status.value if hasattr(session.status, "value") else str(session.status), "sequence": session.sequence}
+    return {"id": str(session.id), "cohort_id": str(session.cohort_id), "phase_id": str(session.phase_id), "week_id": str(session.week_id) if session.week_id else None, "session_number": session.session_number, "session_type": session.session_type.value if hasattr(session.session_type, "value") else str(session.session_type), "title": session.title, "description": session.description, "start_at": (
+    session.start_at.isoformat()
+    if session.start_at
+    else None
+),
+"end_at": (
+    session.end_at.isoformat()
+    if session.end_at
+    else None
+), "meeting_url": session.meeting_url, "recording_url": session.recording_url, "status": session.status.value if hasattr(session.status, "value") else str(session.status), "sequence": session.sequence}
 
 
 @router.put("/sessions/{session_id}", summary="Update a Session")

@@ -63,6 +63,16 @@ export interface AdminCohort {
   participant_count: number;
 }
 
+export interface AdminCohortFellow {
+  enrollment_id: string;
+  fellow_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  account_status: string;
+  enrollment_status: string;
+}
+
 export interface CohortCreate {
   program_id: string;
   name: string;
@@ -125,8 +135,8 @@ export interface AdminSession {
   session_type: string;
   title: string;
   description: string | null;
-  start_at: string;
-  end_at: string;
+  start_at: string | null;
+  end_at: string | null;
   meeting_url: string | null;
   recording_url: string | null;
   status: string;
@@ -137,14 +147,18 @@ export interface SessionCreate {
   cohort_id: string;
   phase_id: string;
   week_id?: string | null;
+
   session_number: number;
   session_type?: string;
+
   title: string;
   description?: string;
+
   start_at: string;
   end_at: string;
-  meeting_url?: string;
+
   recording_url?: string;
+
   status?: string;
   sequence: number;
 }
@@ -310,6 +324,38 @@ export async function updateCohort(id: string, data: Partial<CohortCreate>): Pro
 
 export async function deleteCohort(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/cohorts/${id}`, { method: "DELETE" });
+}
+
+export async function getCohortFellows(
+  cohortId: string
+): Promise<AdminCohortFellow[]> {
+  return adminApiClient<AdminCohortFellow[]>(
+    `/api/v1/admin/cohorts/${cohortId}/fellows`
+  );
+}
+
+export async function addFellowToCohort(
+  cohortId: string,
+  fellowId: string
+): Promise<any> {
+  return adminApiClient(
+    `/api/v1/admin/cohorts/${cohortId}/fellows/${fellowId}`,
+    {
+      method: "POST",
+    }
+  );
+}
+
+export async function removeFellowFromCohort(
+  cohortId: string,
+  fellowId: string
+): Promise<void> {
+  await adminApiClient(
+    `/api/v1/admin/cohorts/${cohortId}/fellows/${fellowId}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
 // ---------------------------------------------------------------------------

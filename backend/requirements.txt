@@ -39,3 +39,5 @@ qrcode==8.2
 colorama==0.4.6
 pytest>=8.0.0
 httpx>=0.28.0
+google-api-python-client
+google-auth

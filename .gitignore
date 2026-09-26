@@ -102,3 +102,8 @@ pnpm-debug.log*
 
 .DS_Store
 Thumbs.db
+
+
+# Google credentials - NEVER COMMIT
+backend/credentials/google-meet-token.json
+backend/credentials/google-oauth-client.json

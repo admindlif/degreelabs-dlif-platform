@@ -1,8 +1,9 @@
 from uuid import UUID
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models.session import SessionStatus
+from app.models.session import Session as DBSession, SessionStatus
 from app.models.user import User
 from app.repositories.discover import (
     get_next_session_for_cohort,
@@ -38,6 +39,41 @@ def _to_session_summary(s) -> SessionSummary:
         has_recording=bool(s.recording_url),
     )
 
+def get_fellow_sessions(
+    db: Session,
+    current_user: User,
+) -> list[SessionSummary]:
+    """
+    Return every session assigned to the Fellow's active cohort.
+    """
+
+    enrollment = get_active_enrollment_for_user(
+        db,
+        current_user.id,
+    )
+
+    if not enrollment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No active cohort enrollment found for current Fellow.",
+        )
+
+    sessions = db.scalars(
+        select(DBSession)
+        .where(
+            DBSession.cohort_id
+            == enrollment.cohort_id
+        )
+        .order_by(
+            DBSession.sequence.asc(),
+            DBSession.start_at.asc(),
+        )
+    ).all()
+
+    return [
+        _to_session_summary(session)
+        for session in sessions
+    ]
 
 def get_discover_overview(db: Session, current_user: User) -> DiscoverOverviewResponse:
     enrollment = get_active_enrollment_for_user(db, current_user.id)

@@ -120,6 +120,16 @@ class Session(Base):
         nullable=True,
     )
 
+    google_calendar_event_id: Mapped[str | None] = mapped_column(
+        String(255),
+        nullable=True,
+    )
+
+    google_calendar_event_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
     recording_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,

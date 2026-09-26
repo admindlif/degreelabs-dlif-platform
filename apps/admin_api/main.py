@@ -91,5 +91,6 @@ def database_health():
 
 
 if __name__ == "__main__":
+    # pyrefly: ignore [missing-import]
     import uvicorn
     uvicorn.run("apps.admin_api.main:app", host="0.0.0.0", port=8002, reload=True)
