@@ -10,16 +10,27 @@ class SessionSummary(BaseModel):
 
     id: UUID
     session_number: int
-    session_type: str
+
+    session_type: str | None = None
     title: str
     description: str | None = None
-    start_at: datetime
-    end_at: datetime
+
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    unlock_at: datetime | None = None
+
+    submission_enabled: bool = False
+
     meeting_url: str | None = None
     recording_url: str | None = None
+    transcript_url: str | None = None
+
     status: str
     sequence: int
+
+    is_unlocked: bool = False
     has_recording: bool = False
+    has_transcript: bool = False
 
 
 class DiscoverProgress(BaseModel):
@@ -60,16 +71,29 @@ class SessionDetailResponse(BaseModel):
     cohort_id: UUID
     phase_id: UUID
     week_id: UUID | None = None
+
     session_number: int
     session_type: str
+
     title: str
     description: str | None = None
-    start_at: datetime
-    end_at: datetime
+
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    unlock_at: datetime | None = None
+
+    submission_enabled: bool = False
+
     meeting_url: str | None = None
     recording_url: str | None = None
+    transcript_url: str | None = None
+
     status: str
     sequence: int
+
+    is_unlocked: bool = False
     has_recording: bool = False
+    has_transcript: bool = False
+
     week_title: str | None = None
     week_number: int | None = None

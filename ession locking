@@ -1,0 +1,20 @@
+warning: in the working copy of 'apps/admin-web/app/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/admin-web/lib/api/admin.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/student-web/app/activate/page.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/student-web/components/discover/four-week-roadmap.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/student-web/components/discover/live-session-spotlight.tsx', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'apps/student-web/lib/api/types.ts', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/api/routes/admin.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/models/session.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/schemas/admin_crud.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/schemas/discover.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/app/services/discover.py', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'backend/tests/test_fellow_discover_api.py', LF will be replaced by CRLF the next time Git touches it
+backend/app/schemas/admin_crud.py:188: trailing whitespace.
+[32m+[m[32m    )[m[41m   [m
+backend/app/services/discover.py:382: trailing whitespace.
+[32m+[m[32m        )[m[41m   [m
+backend/tests/test_fellow_discover_api.py:183: trailing whitespace.
+[32m+[m[41m    [m
+backend/tests/test_fellow_discover_api.py:256: trailing whitespace.
+[32m+[m[32m            ),[m[41m  [m

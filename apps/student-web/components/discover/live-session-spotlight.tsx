@@ -10,8 +10,12 @@ interface LiveSessionSpotlightProps {
 }
 
 export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
+  const isLocked = session ? !session.is_unlocked : false;
   // Format Date and Time
-  const formatSessionTime = (startStr?: string, endStr?: string) => {
+  const formatSessionTime = (
+    startStr?: string | null,
+    endStr?: string | null
+  ) => {
     if (!startStr) return "Schedule to be announced";
     try {
       const start = new Date(startStr);
@@ -71,12 +75,16 @@ export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
 
         {/* Title */}
         <CardTitle className="text-2xl md:text-3xl font-extrabold mb-2">
-          {session?.title || "Problem Framing & Diagnosis"}
+          {isLocked
+            ? `Session ${session?.session_number}`
+            : session?.title || "Problem Framing & Diagnosis"}
         </CardTitle>
 
         <CardDescription className="text-base text-[var(--color-text-body)] mb-6">
-          {session?.description ||
-            "Deconstruct the company challenge problem statement with our industry partner, identify core constraints, and map stakeholder requirements."}
+          {isLocked
+            ? "This session has not been unlocked yet."
+            : session?.description ||
+            "Session details will be available here."}
         </CardDescription>
 
         {/* Schedule & Mentor Information Strip */}
@@ -88,7 +96,12 @@ export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
             <div>
               <p className="text-xs text-[var(--color-text-muted)] font-medium">Time & Date</p>
               <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                {formatSessionTime(session?.start_at, session?.end_at)}
+                {isLocked
+                  ? "Locked"
+                  : formatSessionTime(
+                    session?.start_at,
+                    session?.end_at
+                  )}
               </p>
             </div>
           </div>

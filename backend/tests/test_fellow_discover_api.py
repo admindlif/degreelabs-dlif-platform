@@ -179,7 +179,23 @@ def setup_fellow_cohort(db: Session, fellow_user: User):
             DBSession.phase_id == phase.id,
         )
         .all()
+
+    
     )
+
+    # Keep Session access state deterministic for every test run.
+    for existing_session in existing_sessions:
+        existing_session.is_unlocked = (
+            existing_session.session_number <= 2
+        )
+
+        existing_session.unlock_at = (
+            datetime.now(timezone.utc)
+            if existing_session.session_number <= 2
+            else None
+        )
+
+    db.flush()
 
     existing_numbers = {
         session.session_number
@@ -201,6 +217,8 @@ def setup_fellow_cohort(db: Session, fellow_user: User):
             end_at=base_time + timedelta(hours=1),
             status=SessionStatus.SCHEDULED,
             sequence=0,
+            is_unlocked=True,
+            unlock_at=datetime.now(timezone.utc),
         )
 
         db.add(induction)
@@ -230,6 +248,12 @@ def setup_fellow_cohort(db: Session, fellow_user: User):
             end_at=start_at + timedelta(hours=1),
             status=SessionStatus.SCHEDULED,
             sequence=session_number,
+            is_unlocked=(session_number <= 2),
+            unlock_at=(
+                datetime.now(timezone.utc)
+                if session_number <= 2
+                else None
+            ),  
         )
 
         db.add(session)
@@ -334,3 +358,214 @@ def test_cross_cohort_session_isolation(db: Session, student_client: TestClient,
     db.delete(other_session)
     db.delete(other_cohort)
     db.commit()
+
+def test_locked_session_is_hidden_in_fellow_week_response(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 3,
+        )
+        .one()
+    )
+
+    # Add protected data which must not leak.
+    session.title = "SECRET SESSION 3 TITLE"
+    session.description = "SECRET DESCRIPTION"
+    session.meeting_url = (
+        "https://meet.google.com/secret-session-3"
+    )
+    session.recording_url = (
+        "https://drive.google.com/secret-recording"
+    )
+    session.transcript_url = (
+        "https://drive.google.com/secret-transcript"
+    )
+    session.submission_enabled = True
+
+    session.is_unlocked = False
+    session.unlock_at = None
+
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        "/api/v1/fellow/discover/weeks",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    weeks = response.json()
+
+    all_sessions = [
+        item
+        for week in weeks
+        for item in week["sessions"]
+    ]
+
+    session_3 = next(
+        item
+        for item in all_sessions
+        if item["session_number"] == 3
+    )
+
+    assert session_3["is_unlocked"] is False
+    assert session_3["status"] == "locked"
+
+    assert session_3["title"] == "Session 3"
+    assert session_3["description"] is None
+
+    assert session_3["start_at"] is None
+    assert session_3["end_at"] is None
+
+    assert session_3["meeting_url"] is None
+    assert session_3["recording_url"] is None
+    assert session_3["transcript_url"] is None
+
+    assert session_3["submission_enabled"] is False
+
+    assert session_3["has_recording"] is False
+    assert session_3["has_transcript"] is False
+
+def test_locked_session_direct_access_is_forbidden(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 3,
+        )
+        .one()
+    )
+
+    session.is_unlocked = False
+    session.unlock_at = None
+
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        f"/api/v1/fellow/sessions/{session.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+    assert (
+        "locked"
+        in response.json()["detail"].lower()
+    )
+
+def test_unlocked_session_content_is_available(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 3,
+        )
+        .one()
+    )
+
+    session.title = "Discovery Review"
+    session.description = "Session 3 description"
+
+    session.meeting_url = (
+        "https://meet.google.com/session-3"
+    )
+
+    session.recording_url = (
+        "https://drive.google.com/session-3-recording"
+    )
+
+    session.transcript_url = (
+        "https://drive.google.com/session-3-transcript"
+    )
+
+    session.submission_enabled = True
+
+    # Simulate Admin unlock.
+    session.is_unlocked = True
+    session.unlock_at = datetime.now(
+        timezone.utc
+    )
+
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        f"/api/v1/fellow/sessions/{session.id}",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["session_number"] == 3
+    assert data["is_unlocked"] is True
+
+    assert data["title"] == "Discovery Review"
+
+    assert (
+        data["meeting_url"]
+        == "https://meet.google.com/session-3"
+    )
+
+    assert (
+        data["recording_url"]
+        == "https://drive.google.com/session-3-recording"
+    )
+
+    assert (
+        data["transcript_url"]
+        == "https://drive.google.com/session-3-transcript"
+    )
+
+    assert data["submission_enabled"] is True
+    assert data["has_recording"] is True
+    assert data["has_transcript"] is True

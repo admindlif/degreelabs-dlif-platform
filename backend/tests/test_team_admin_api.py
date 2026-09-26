@@ -3,14 +3,24 @@ from uuid import uuid4
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 
-from app.core.security import hash_password
+from app.core.security import (
+    create_access_token,
+    hash_password,
+)
 from app.models.cohort import Cohort, CohortStatus
 from app.models.enrollment import Enrollment, EnrollmentStatus
 from app.models.program import Program
 from app.models.team import Team, TeamMembership, TeamMemberRole
 from app.models.user import AccountStatus, User, UserRole
-
+from app.core.security import create_access_token, hash_password
+from app.models.phase import Phase
+from app.models.session import (
+    Session as DBSession,
+    SessionStatus,
+    SessionType,
+)
 
 def create_program(db: Session) -> Program:
     program = Program(
@@ -39,6 +49,53 @@ def create_cohort(
     db.commit()
     db.refresh(cohort)
     return cohort
+
+def create_phase(
+    db: Session,
+    program: Program,
+) -> Phase:
+    phase = Phase(
+        program_id=program.id,
+        code=f"DISCOVER-{uuid4().hex[:6]}",
+        name="DISCOVER",
+        development_role="THINK",
+        sequence=1,
+        duration_weeks=4,
+    )
+
+    db.add(phase)
+    db.commit()
+    db.refresh(phase)
+
+    return phase
+
+
+def create_test_session(
+    db: Session,
+    cohort: Cohort,
+    phase: Phase,
+    session_number: int = 3,
+) -> DBSession:
+    session = DBSession(
+        cohort_id=cohort.id,
+        phase_id=phase.id,
+        week_id=None,
+        session_number=session_number,
+        session_type=SessionType.OUTPUT_REVIEW,
+        title=f"Session {session_number}",
+        description="Admin unlock test session",
+        status=SessionStatus.SCHEDULED,
+        sequence=session_number,
+        is_unlocked=False,
+        unlock_at=None,
+        submission_enabled=True,
+    )
+
+    db.add(session)
+    db.commit()
+    db.refresh(session)
+
+    return session
 
 
 def create_fellow(
@@ -310,3 +367,196 @@ def test_admin_cannot_remove_current_team_lead(
             users=[fellow],
             programs=[program],
         )
+def test_admin_can_unlock_session(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+    cohort = create_cohort(
+        db,
+        program,
+        "SESSION-UNLOCK",
+    )
+    phase = create_phase(
+        db,
+        program,
+    )
+    session = create_test_session(
+        db,
+        cohort,
+        phase,
+        session_number=3,
+    )
+
+    try:
+        assert session.is_unlocked is False
+        assert session.unlock_at is None
+
+        response = client.put(
+            f"/api/v1/admin/sessions/{session.id}/unlock",
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["id"] == str(session.id)
+        assert data["session_number"] == 3
+        assert data["is_unlocked"] is True
+        assert data["unlock_at"] is not None
+
+        db.refresh(session)
+
+        assert session.is_unlocked is True
+        assert session.unlock_at is not None
+
+    finally:
+        existing_program = db.get(
+            Program,
+            program.id,
+        )
+
+        if existing_program:
+            db.delete(existing_program)
+            db.commit()
+def test_admin_can_lock_session(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+
+    cohort = create_cohort(
+        db,
+        program,
+        "SESSION-LOCK",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    session = create_test_session(
+        db,
+        cohort,
+        phase,
+        session_number=3,
+    )
+
+    try:
+        # First simulate that Admin already unlocked Session 3.
+        session.is_unlocked = True
+
+        session.unlock_at = datetime.now(
+            timezone.utc
+        )
+
+        db.commit()
+        db.refresh(session)
+
+        # Now call the Admin lock API.
+        response = client.put(
+            f"/api/v1/admin/sessions/{session.id}/lock",
+            headers=admin_headers,
+        )
+
+        # API should succeed.
+        assert response.status_code == 200
+
+        data = response.json()
+
+        # Response should show that the Session is locked.
+        assert data["id"] == str(session.id)
+        assert data["session_number"] == 3
+        assert data["is_unlocked"] is False
+        assert data["unlock_at"] is None
+
+        # Verify the actual database also changed.
+        db.refresh(session)
+
+        assert session.is_unlocked is False
+        assert session.unlock_at is None
+
+    finally:
+        existing_program = db.get(
+            Program,
+            program.id,
+        )
+
+        if existing_program:
+            db.delete(existing_program)
+            db.commit()
+
+def test_fellow_cannot_unlock_session(
+    client: TestClient,
+    db: Session,
+):
+    program = create_program(db)
+
+    cohort = create_cohort(
+        db,
+        program,
+        "SESSION-FELLOW",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    fellow = create_fellow(
+        db,
+        cohort,
+        "session-security",
+    )
+
+    session = create_test_session(
+        db,
+        cohort,
+        phase,
+        session_number=3,
+    )
+
+    try:
+        fellow_token = create_access_token(
+            subject=str(fellow.id),
+            role=fellow.role.value,
+        )
+
+        headers = {
+            "Authorization": f"Bearer {fellow_token}"
+        }
+
+        response = client.put(
+            f"/api/v1/admin/sessions/{session.id}/unlock",
+            headers=headers,
+        )
+
+        assert response.status_code == 403
+
+        db.refresh(session)
+
+        assert session.is_unlocked is False
+        assert session.unlock_at is None
+
+    finally:
+        existing_fellow = db.get(
+            User,
+            fellow.id,
+        )
+
+        if existing_fellow:
+            db.delete(existing_fellow)
+
+        existing_program = db.get(
+            Program,
+            program.id,
+        )
+
+        if existing_program:
+            db.delete(existing_program)
+
+        db.commit()

@@ -131,14 +131,25 @@ export interface AdminSession {
   cohort_id: string;
   phase_id: string;
   week_id: string | null;
+
   session_number: number;
   session_type: string;
+
   title: string;
   description: string | null;
+
   start_at: string | null;
   end_at: string | null;
+
+  is_unlocked: boolean;
+  unlock_at: string | null;
+
+  submission_enabled: boolean;
+
   meeting_url: string | null;
   recording_url: string | null;
+  transcript_url: string | null;
+
   status: string;
   sequence: number;
 }
@@ -411,6 +422,23 @@ export async function deleteSession(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/sessions/${id}`, { method: "DELETE" });
 }
 
+export async function unlockSession(id: string): Promise<void> {
+  await adminApiClient(
+    `/api/v1/admin/sessions/${id}/unlock`,
+    {
+      method: "PUT",
+    }
+  );
+}
+
+export async function lockSession(id: string): Promise<void> {
+  await adminApiClient(
+    `/api/v1/admin/sessions/${id}/lock`,
+    {
+      method: "PUT",
+    }
+  );
+}
 // ---------------------------------------------------------------------------
 // Teams
 // ---------------------------------------------------------------------------

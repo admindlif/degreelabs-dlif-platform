@@ -38,18 +38,18 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
             <div className="flex flex-col items-center gap-1.5">
               <div
                 className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold transition-all ${isDone
-                    ? "bg-[var(--color-success)] text-white"
-                    : isCurrent
-                      ? "bg-[var(--color-brand-orange)] text-white shadow-md ring-4 ring-orange-500/20"
-                      : "bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]"
+                  ? "bg-[var(--color-success)] text-white"
+                  : isCurrent
+                    ? "bg-[var(--color-brand-orange)] text-white shadow-md ring-4 ring-orange-500/20"
+                    : "bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] border border-[var(--color-border-default)]"
                   }`}
               >
                 {isDone ? <Check className="w-4 h-4" /> : s.num}
               </div>
               <span
                 className={`text-[10px] font-semibold tracking-wider uppercase hidden sm:block ${isCurrent
-                    ? "text-[var(--color-text-primary)]"
-                    : "text-[var(--color-text-muted)]"
+                  ? "text-[var(--color-text-primary)]"
+                  : "text-[var(--color-text-muted)]"
                   }`}
               >
                 {s.label}
@@ -58,8 +58,8 @@ function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
             {idx < steps.length - 1 && (
               <div
                 className={`flex-1 h-0.5 mx-2 transition-all ${currentStep > idx + 1
-                    ? "bg-[var(--color-success)]"
-                    : "bg-[var(--color-border-default)]"
+                  ? "bg-[var(--color-success)]"
+                  : "bg-[var(--color-border-default)]"
                   }`}
               />
             )}
@@ -136,18 +136,41 @@ function StudentActivationContent() {
         return;
       }
 
-      if (!data.access_token) {
-        setError("Account activated, but no login token was returned.");
+      if (!data.onboarding_token) {
+        setError(
+          "Account activated, but no onboarding token was returned."
+        );
         return;
       }
 
-      const success = await login(data.access_token);
+      const onboardingToken = data.onboarding_token;
 
-      if (success) {
-        router.push("/");
-      } else {
-        router.push("/login");
+      setTempAccessToken(onboardingToken);
+
+      const setupRes = await fetch(
+        `${API_URL}/api/v1/auth/2fa/setup`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${onboardingToken}`,
+          },
+        }
+      );
+
+      const setupData = await setupRes.json().catch(() => ({}));
+
+      if (!setupRes.ok) {
+        setError(
+          setupData.detail ||
+          "Unable to start two-factor authentication setup."
+        );
+        return;
       }
+
+      setTotpSecret(setupData.secret);
+      setOtpauthUri(setupData.totp_uri);
+      setStep(2);
     } catch {
       setError(
         "Could not reach Fellow Portal API. Please verify server status."
@@ -181,6 +204,15 @@ function StudentActivationContent() {
         setError(data.detail || "Invalid 6-digit code. Please verify the code in your app.");
         return;
       }
+
+      if (!data.access_token) {
+        setError(
+          "2FA was confirmed, but no access token was  returned."
+        );
+        return;
+      }
+
+      setTempAccessToken(data.access_token);
 
       setRecoveryCodes(data.recovery_codes || []);
       setStep(4);

@@ -37,16 +37,40 @@ export interface FellowContext {
 export interface SessionSummary {
   id: string;
   session_number: number;
-  session_type: "induction" | "learn_work" | "output_review" | string;
+
+  session_type:
+  | "induction"
+  | "learn_work"
+  | "output_review"
+  | string
+  | null;
+
   title: string;
   description: string | null;
-  start_at: string;
-  end_at: string;
+
+  start_at: string | null;
+  end_at: string | null;
+  unlock_at: string | null;
+
+  is_unlocked: boolean;
+  submission_enabled: boolean;
+
   meeting_url: string | null;
   recording_url: string | null;
-  status: "scheduled" | "live" | "completed" | "cancelled" | string;
+  transcript_url: string | null;
+
+  status:
+  | "scheduled"
+  | "live"
+  | "completed"
+  | "cancelled"
+  | "locked"
+  | string;
+
   sequence: number;
+
   has_recording: boolean;
+  has_transcript: boolean;
 }
 
 export interface DiscoverProgress {

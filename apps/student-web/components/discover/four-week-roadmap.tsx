@@ -45,22 +45,48 @@ interface DisplayWeek {
 export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
   // Format Date and Duration from SessionSummary
   const formatSessionTime = (s: SessionSummary) => {
+    if (!s.is_unlocked) {
+      return {
+        dateStr: "Locked",
+        durationStr: "--",
+      };
+    }
+
+    if (!s.start_at || !s.end_at) {
+      return {
+        dateStr: "Schedule to be announced",
+        durationStr: "--",
+      };
+    }
+
     try {
       const start = new Date(s.start_at);
       const end = new Date(s.end_at);
+
       const dateStr = start.toLocaleDateString("en-US", {
         weekday: "short",
         month: "short",
         day: "numeric",
       });
+
       const diffMs = end.getTime() - start.getTime();
       const diffMins = Math.round(diffMs / 60000);
+
       const hours = Math.floor(diffMins / 60);
       const mins = diffMins % 60;
-      const durationStr = `${hours}h ${mins > 0 ? `${mins}m` : "00m"}`;
-      return { dateStr, durationStr };
+
+      const durationStr =
+        `${hours}h ${mins > 0 ? `${mins}m` : "00m"}`;
+
+      return {
+        dateStr,
+        durationStr,
+      };
     } catch {
-      return { dateStr: "Scheduled", durationStr: "2h 00m" };
+      return {
+        dateStr: "Schedule to be announced",
+        durationStr: "--",
+      };
     }
   };
 
@@ -103,22 +129,28 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
           w.status === "active"
             ? "brand"
             : w.status === "upcoming"
-            ? "blue"
-            : "muted";
+              ? "blue"
+              : "muted";
 
         const mappedSessions: DisplaySession[] = w.sessions.map((s) => {
           const { dateStr, durationStr } = formatSessionTime(s);
           let sessionStatus: DisplaySession["status"] = "upcoming";
-          if (s.status === "completed") sessionStatus = "completed";
-          else if (s.status === "live") sessionStatus = "live_soon";
-          else if (w.status === "locked") sessionStatus = "locked";
 
+          if (!s.is_unlocked || s.status === "locked") {
+            sessionStatus = "locked";
+          } else if (s.status === "completed") {
+            sessionStatus = "completed";
+          } else if (s.status === "live") {
+            sessionStatus = "live_soon";
+          } else if (w.status === "locked") {
+            sessionStatus = "locked";
+          }
           const numberLabel =
             s.session_number === 0
               ? "Session 0"
               : s.session_type === "output_review"
-              ? `Session ${s.session_number}: Output + Review (Gate)`
-              : `Session ${s.session_number}: Learn + Work`;
+                ? `Session ${s.session_number}: Output + Review (Gate)`
+                : `Session ${s.session_number}: Learn + Work`;
 
           return {
             id: s.id,
@@ -331,13 +363,12 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
           return (
             <div
               key={week.weekNumber}
-              className={`rounded-[24px] border transition-all duration-200 overflow-hidden ${
-                isActive
+              className={`rounded-[24px] border transition-all duration-200 overflow-hidden ${isActive
                   ? "bg-[var(--color-bg-canvas)] border-[var(--color-brand-blue)] shadow-[0_4px_30px_rgba(56,119,249,0.08)]"
                   : isLocked
-                  ? "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] opacity-75"
-                  : "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]"
-              }`}
+                    ? "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] opacity-75"
+                    : "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]"
+                }`}
             >
               {/* Week Title Bar */}
               <div className="p-6 md:p-8 border-b border-[var(--color-border-default)] flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -378,7 +409,11 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                     className="p-4 md:px-8 md:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[var(--color-bg-subtle)] transition-colors"
                   >
                     <div className="flex items-center gap-4">
-                      {session.status === "completed" ? (
+                      {session.status === "locked" ? (
+                        <div className="w-8 h-8 rounded-full bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] flex items-center justify-center shrink-0">
+                          <Lock className="w-4 h-4" />
+                        </div>
+                      ) : session.status === "completed" ? (
                         <div className="w-8 h-8 rounded-full bg-[#E8FAF0] text-[#128C48] flex items-center justify-center shrink-0">
                           <CheckCircle2 className="w-4 h-4" />
                         </div>

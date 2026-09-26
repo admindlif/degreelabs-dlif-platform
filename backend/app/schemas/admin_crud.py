@@ -180,6 +180,12 @@ class SessionCreate(BaseModel):
     recording_url: Optional[str] = Field(None, max_length=500)
     status: str = "scheduled"
     sequence: int = Field(..., ge=0)
+    unlock_at: Optional[datetime] = None
+    submission_enabled: bool = False
+    transcript_url: Optional[str] = Field(
+        None,
+        max_length=500,
+    )   
 
 
 class SessionUpdate(BaseModel):
@@ -194,6 +200,12 @@ class SessionUpdate(BaseModel):
     recording_url: Optional[str] = Field(None, max_length=500)
     status: Optional[str] = None
     sequence: Optional[int] = Field(None, ge=0)
+    unlock_at: Optional[datetime] = None
+    submission_enabled: Optional[bool] = None
+    transcript_url: Optional[str] = Field(
+        None,
+        max_length=500,
+    )
 
 
 class SessionResponse(BaseModel):
@@ -211,8 +223,12 @@ class SessionResponse(BaseModel):
     start_at: Optional[datetime] = None
     end_at: Optional[datetime] = None
 
+    unlock_at: Optional[datetime] = None
+    submission_enabled: bool = False
+
     meeting_url: Optional[str]
     recording_url: Optional[str]
+    transcript_url: Optional[str] = None
 
     meeting_provider: Optional[str] = None
     google_meet_space_name: Optional[str] = None
@@ -225,6 +241,15 @@ class SessionResponse(BaseModel):
 
     created_at: datetime
     updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SessionAccessStateResponse(BaseModel):
+    id: UUID
+    session_number: int
+    is_unlocked: bool
+    unlock_at: Optional[datetime] = None
 
     model_config = {"from_attributes": True}
 

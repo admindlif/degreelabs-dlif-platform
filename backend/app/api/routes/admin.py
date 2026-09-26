@@ -7,6 +7,7 @@ Only ADMIN and SUPER_ADMIN roles may access these endpoints.
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
+from datetime import datetime, timezone
 from uuid import UUID
 
 from app.core.permissions import require_roles
@@ -33,6 +34,7 @@ from app.schemas.admin_crud import (
     ResourceUpdate,
     SessionCreate,
     SessionUpdate,
+    SessionAccessStateResponse,
     TeamCreate,
     TeamUpdate,
     TeamMemberAdd,
@@ -558,19 +560,131 @@ def delete_week(week_id: str, db: Session = Depends(get_db), _admin: User = Depe
 # SESSIONS CRUD
 # ===========================================================================
 
-@router.get("/sessions", summary="List Sessions (filter by cohort_id or week_id)")
-def list_sessions(cohort_id: str | None = None, week_id: str | None = None, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    q = select(DBSession).order_by(DBSession.start_at)
-    if cohort_id:
-        q = q.where(DBSession.cohort_id == cohort_id)
-    if week_id:
-        q = q.where(DBSession.week_id == week_id)
-    sessions = db.scalars(q).all()
-    return [{"id": str(s.id), "cohort_id": str(s.cohort_id), "phase_id": str(s.phase_id), "week_id": str(s.week_id) if s.week_id else None, "session_number": s.session_number, "session_type": s.session_type.value if hasattr(s.session_type, "value") else str(s.session_type), "title": s.title, "description": s.description, "start_at": s.start_at.isoformat() if s.start_at else None, "end_at": s.end_at.isoformat() if s.end_at else None, "meeting_url": s.meeting_url, "meeting_provider": s.meeting_provider,
-"google_meet_code": s.google_meet_code,
-"google_calendar_event_id": s.google_calendar_event_id,
-"google_calendar_event_url": s.google_calendar_event_url,"recording_url": s.recording_url, "status": s.status.value if hasattr(s.status, "value") else str(s.status), "sequence": s.sequence} for s in sessions]
+@router.get(
+    "/sessions",
+    summary="List Sessions (filter by cohort_id or week_id)",
+)
+def list_sessions(
+    cohort_id: str | None = None,
+    week_id: str | None = None,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    q = select(DBSession).order_by(
+        DBSession.start_at
+    )
 
+    if cohort_id:
+        q = q.where(
+            DBSession.cohort_id == cohort_id
+        )
+
+    if week_id:
+        q = q.where(
+            DBSession.week_id == week_id
+        )
+
+    sessions = db.scalars(q).all()
+
+    return [
+        {
+            "id": str(session.id),
+            "cohort_id": str(session.cohort_id),
+            "phase_id": str(session.phase_id),
+            "week_id": (
+                str(session.week_id)
+                if session.week_id
+                else None
+            ),
+
+            "session_number": session.session_number,
+
+            "session_type": (
+                session.session_type.value
+                if hasattr(
+                    session.session_type,
+                    "value",
+                )
+                else str(session.session_type)
+            ),
+
+            "title": session.title,
+            "description": session.description,
+
+            "start_at": (
+                session.start_at.isoformat()
+                if session.start_at
+                else None
+            ),
+
+            "end_at": (
+                session.end_at.isoformat()
+                if session.end_at
+                else None
+            ),
+
+            # ---------------------------------
+            # Admin-controlled Session access
+            # ---------------------------------
+            "is_unlocked": session.is_unlocked,
+
+            "unlock_at": (
+                session.unlock_at.isoformat()
+                if session.unlock_at
+                else None
+            ),
+
+            "submission_enabled": (
+                session.submission_enabled
+            ),
+
+            # ---------------------------------
+            # Meeting
+            # ---------------------------------
+            "meeting_url": session.meeting_url,
+
+            "meeting_provider": (
+                session.meeting_provider
+            ),
+
+            "google_meet_code": (
+                session.google_meet_code
+            ),
+
+            "google_calendar_event_id": (
+                session.google_calendar_event_id
+            ),
+
+            "google_calendar_event_url": (
+                session.google_calendar_event_url
+            ),
+
+            # ---------------------------------
+            # Recording / Transcript
+            # ---------------------------------
+            "recording_url": (
+                session.recording_url
+            ),
+
+            "transcript_url": (
+                session.transcript_url
+            ),
+
+            "status": (
+                session.status.value
+                if hasattr(session.status, "value")
+                else str(session.status)
+            ),
+
+            "sequence": session.sequence,
+        }
+        for session in sessions
+    ]
 
 @router.post(
     "/sessions",
@@ -609,90 +723,210 @@ def create_session(
 
     payload = data.model_dump()
 
-    payload["session_type"] = SessionType(
-        payload["session_type"]
-    )
+    # Initial DISCOVER rollout:
+    # Sessions 0-2 are available immediately.
+    # Session 3+ stays locked until Admin explicitly unlocks it.
+    if data.session_number <= 2:
+        payload["is_unlocked"] = True
+        payload["unlock_at"] = datetime.now(
+            timezone.utc
+        )
+    else:
+        payload["is_unlocked"] = False
+        payload["unlock_at"] = None
 
-    payload["status"] = SessionStatus(
-        payload["status"]
-    )
+    # Default Session unlock behaviour.
+    #
+    # Initial rollout:
+    # Sessions 0-2 are available immediately.
+    # Session 3+ unlock when the Session starts,
+    # unless Admin supplied an explicit unlock_at.
+    if payload.get("unlock_at") is None:
+        if data.session_number <= 2:
+            payload["unlock_at"] = datetime.now(
+                timezone.utc
+            )
+        else:
+            payload["unlock_at"] = data.start_at
 
-    # Admin never enters the Meet URL manually
-    payload["meeting_url"] = None
+        payload["session_type"] = SessionType(
+            payload["session_type"]
+        )
 
-    session = DBSession(**payload)
+        payload["status"] = SessionStatus(
+            payload["status"]
+        )
 
-    db.add(session)
+        # Admin never enters the Meet URL manually
+        payload["meeting_url"] = None
 
-    try:
-        db.flush()
+        session = DBSession(**payload)
 
-        # Create Google Meet automatically
-        meet = create_meeting_space()
+        db.add(session)
 
-        session.meeting_provider = "google_meet"
+        try:
+            db.flush()
 
-        session.meeting_url = meet["meeting_url"]
+            # Create Google Meet automatically
+            meet = create_meeting_space()
 
-        session.google_meet_space_name = meet[
-            "space_name"
-        ]
+            session.meeting_provider = "google_meet"
 
-        session.google_meet_code = meet[
-            "meeting_code"
-        ]
+            session.meeting_url = meet["meeting_url"]
 
-        db.commit()
-        db.refresh(session)
+            session.google_meet_space_name = meet[
+                "space_name"
+            ]
 
-    except Exception as exc:
-        db.rollback()
+            session.google_meet_code = meet[
+                "meeting_code"
+            ]
 
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                "Unable to create Google Meet session. "
-                f"{str(exc)}"
+            db.commit()
+            db.refresh(session)
+
+        except Exception as exc:
+            db.rollback()
+
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=(
+                    "Unable to create Google Meet session. "
+                    f"{str(exc)}"
+                ),
+            ) from exc
+
+        return {
+            "id": str(session.id),
+            "title": session.title,
+            "session_number": session.session_number,
+            "start_at": (
+                session.start_at.isoformat()
+                if session.start_at
+                else None
             ),
-        ) from exc
+            "end_at": (
+                session.end_at.isoformat()
+                if session.end_at
+                else None
+            ),
+            "meeting_provider": session.meeting_provider,
+            "meeting_url": session.meeting_url,
+            "google_meet_space_name": session.google_meet_space_name,
+            "google_meet_code": session.google_meet_code,
+            "status": session.status.value,
+        }
+
+@router.get(
+    "/sessions/{session_id}",
+    summary="Get a Session by ID",
+)
+def get_session(
+    session_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    session = db.scalar(
+        select(DBSession).where(
+            DBSession.id == session_id
+        )
+    )
+
+    if not session:
+        raise _not_found(
+            "Session",
+            session_id,
+        )
 
     return {
         "id": str(session.id),
-        "title": session.title,
+        "cohort_id": str(session.cohort_id),
+        "phase_id": str(session.phase_id),
+
+        "week_id": (
+            str(session.week_id)
+            if session.week_id
+            else None
+        ),
+
         "session_number": session.session_number,
+
+        "session_type": (
+            session.session_type.value
+            if hasattr(
+                session.session_type,
+                "value",
+            )
+            else str(session.session_type)
+        ),
+
+        "title": session.title,
+        "description": session.description,
+
         "start_at": (
             session.start_at.isoformat()
             if session.start_at
             else None
         ),
+
         "end_at": (
             session.end_at.isoformat()
             if session.end_at
             else None
         ),
-        "meeting_provider": session.meeting_provider,
+
+        # Admin-controlled Session access
+        "is_unlocked": session.is_unlocked,
+
+        "unlock_at": (
+            session.unlock_at.isoformat()
+            if session.unlock_at
+            else None
+        ),
+
+        "submission_enabled": (
+            session.submission_enabled
+        ),
+
+        # Meeting
         "meeting_url": session.meeting_url,
-        "google_meet_space_name": session.google_meet_space_name,
-        "google_meet_code": session.google_meet_code,
-        "status": session.status.value,
+        "meeting_provider": (
+            session.meeting_provider
+        ),
+
+        "google_meet_space_name": (
+            session.google_meet_space_name
+        ),
+
+        "google_meet_code": (
+            session.google_meet_code
+        ),
+
+        "google_calendar_event_id": (
+            session.google_calendar_event_id
+        ),
+
+        "google_calendar_event_url": (
+            session.google_calendar_event_url
+        ),
+
+        # Recording / Transcript
+        "recording_url": session.recording_url,
+        "transcript_url": session.transcript_url,
+
+        "status": (
+            session.status.value
+            if hasattr(session.status, "value")
+            else str(session.status)
+        ),
+
+        "sequence": session.sequence,
     }
-
-@router.get("/sessions/{session_id}", summary="Get a Session by ID")
-def get_session(session_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    session = db.scalar(select(DBSession).where(DBSession.id == session_id))
-    if not session:
-        raise _not_found("Session", session_id)
-    return {"id": str(session.id), "cohort_id": str(session.cohort_id), "phase_id": str(session.phase_id), "week_id": str(session.week_id) if session.week_id else None, "session_number": session.session_number, "session_type": session.session_type.value if hasattr(session.session_type, "value") else str(session.session_type), "title": session.title, "description": session.description, "start_at": (
-    session.start_at.isoformat()
-    if session.start_at
-    else None
-),
-"end_at": (
-    session.end_at.isoformat()
-    if session.end_at
-    else None
-), "meeting_url": session.meeting_url, "recording_url": session.recording_url, "status": session.status.value if hasattr(session.status, "value") else str(session.status), "sequence": session.sequence}
-
 
 @router.put("/sessions/{session_id}", summary="Update a Session")
 def update_session(session_id: str, data: SessionUpdate, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
@@ -709,6 +943,88 @@ def update_session(session_id: str, data: SessionUpdate, db: Session = Depends(g
     db.commit()
     db.refresh(session)
     return {"id": str(session.id), "title": session.title, "status": session.status.value}
+
+@router.put(
+    "/sessions/{session_id}/unlock",
+    response_model=SessionAccessStateResponse,
+    summary="Unlock a Session for Fellows",
+)
+def unlock_session(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+) -> SessionAccessStateResponse:
+    session = db.scalar(
+        select(DBSession).where(
+            DBSession.id == session_id
+        )
+    )
+
+    if not session:
+        raise _not_found(
+            "Session",
+            session_id,
+        )
+
+    session.is_unlocked = True
+    session.unlock_at = datetime.now(
+        timezone.utc
+    )
+
+    db.commit()
+    db.refresh(session)
+
+    return SessionAccessStateResponse(
+        id=session.id,
+        session_number=session.session_number,
+        is_unlocked=session.is_unlocked,
+        unlock_at=session.unlock_at,
+    )
+
+@router.put(
+    "/sessions/{session_id}/lock",
+    response_model=SessionAccessStateResponse,
+    summary="Lock a Session for Fellows",
+)
+def lock_session(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+) -> SessionAccessStateResponse:
+    session = db.scalar(
+        select(DBSession).where(
+            DBSession.id == session_id
+        )
+    )
+
+    if not session:
+        raise _not_found(
+            "Session",
+            session_id,
+        )
+
+    session.is_unlocked = False
+    session.unlock_at = None
+
+    db.commit()
+    db.refresh(session)
+
+    return SessionAccessStateResponse(
+        id=session.id,
+        session_number=session.session_number,
+        is_unlocked=session.is_unlocked,
+        unlock_at=session.unlock_at,
+    )
 
 
 @router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a Session")

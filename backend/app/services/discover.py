@@ -1,3 +1,4 @@
+from datetime import datetime, timezone
 from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -23,22 +24,159 @@ from app.schemas.discover import (
 from app.schemas.fellow_context import CohortSummary, PhaseSummary
 
 
-def _to_session_summary(s) -> SessionSummary:
-    return SessionSummary(
-        id=s.id,
-        session_number=s.session_number,
-        session_type=s.session_type.value if hasattr(s.session_type, "value") else str(s.session_type),
-        title=s.title,
-        description=s.description,
-        start_at=s.start_at,
-        end_at=s.end_at,
-        meeting_url=s.meeting_url,
-        recording_url=s.recording_url,
-        status=s.status.value if hasattr(s.status, "value") else str(s.status),
-        sequence=s.sequence,
-        has_recording=bool(s.recording_url),
-    )
+def is_session_unlocked(
+    session: DBSession,
+    *,
+    now: datetime | None = None,
+) -> bool:
+    """
+    Return True when a Fellow is allowed to access a Session.
 
+    Initial rollout rule:
+    - Sessions 0, 1 and 2 are available immediately.
+    - Session 3+ unlock according to session.unlock_at.
+    """
+
+    if session.session_number <= 2:
+        return True
+
+    if session.unlock_at is None:
+        return False
+
+    current_time = now or datetime.now(timezone.utc)
+    unlock_at = session.unlock_at
+
+    # Defensive handling for databases/test environments that may
+    # return naive datetimes.
+    if current_time.tzinfo is None:
+        current_time = current_time.replace(
+            tzinfo=timezone.utc
+        )
+
+    if unlock_at.tzinfo is None:
+        unlock_at = unlock_at.replace(
+            tzinfo=timezone.utc
+        )
+
+    return current_time >= unlock_at
+
+def is_session_unlocked(
+    session: DBSession,
+) -> bool:
+    """
+    Master Session access switch.
+
+    A Fellow can access Session-specific content only when
+    an Admin has explicitly unlocked the Session.
+    """
+    return bool(session.is_unlocked)
+
+
+def require_session_unlocked(
+    session: DBSession,
+) -> None:
+    """
+    Reject direct access to a locked Session.
+    """
+    if not is_session_unlocked(session):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "This Session is locked. "
+                "It must be unlocked by an Admin."
+            ),
+        )
+
+def _to_session_summary(
+    session: DBSession,
+) -> SessionSummary:
+    unlocked = is_session_unlocked(session)
+
+    # ---------------------------------------------------------
+    # LOCKED SESSION
+    #
+    # Fellows can know the Session exists, but nothing
+    # Session-specific is exposed.
+    # ---------------------------------------------------------
+    if not unlocked:
+        return SessionSummary(
+            id=session.id,
+            session_number=session.session_number,
+
+            session_type=None,
+
+            # Do not expose the real Session title yet.
+            title=f"Session {session.session_number}",
+
+            description=None,
+
+            start_at=None,
+            end_at=None,
+            unlock_at=None,
+
+            submission_enabled=False,
+
+            meeting_url=None,
+            recording_url=None,
+            transcript_url=None,
+
+            status="locked",
+            sequence=session.sequence,
+
+            is_unlocked=False,
+            has_recording=False,
+            has_transcript=False,
+        )
+
+    # ---------------------------------------------------------
+    # UNLOCKED SESSION
+    # ---------------------------------------------------------
+    return SessionSummary(
+        id=session.id,
+        session_number=session.session_number,
+
+        session_type=(
+            session.session_type.value
+            if hasattr(
+                session.session_type,
+                "value",
+            )
+            else str(session.session_type)
+        ),
+
+        title=session.title,
+        description=session.description,
+
+        start_at=session.start_at,
+        end_at=session.end_at,
+        unlock_at=session.unlock_at,
+
+        submission_enabled=(
+            session.submission_enabled
+        ),
+
+        meeting_url=session.meeting_url,
+        recording_url=session.recording_url,
+        transcript_url=session.transcript_url,
+
+        status=(
+            session.status.value
+            if hasattr(session.status, "value")
+            else str(session.status)
+        ),
+
+        sequence=session.sequence,
+
+        is_unlocked=True,
+
+        has_recording=bool(
+            session.recording_url
+        ),
+
+        has_transcript=bool(
+            session.transcript_url
+        ),
+    )
 def get_fellow_sessions(
     db: Session,
     current_user: User,
@@ -234,22 +372,74 @@ def get_session_detail(db: Session, current_user: User, session_id: UUID) -> Ses
             detail="Session not found.",
         )
 
+    require_session_unlocked(session)
+    if not is_session_unlocked(session):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                "This Session is locked and is not yet available."
+            ),
+        )   
+
     return SessionDetailResponse(
         id=session.id,
         cohort_id=session.cohort_id,
         phase_id=session.phase_id,
         week_id=session.week_id,
+
         session_number=session.session_number,
-        session_type=session.session_type.value if hasattr(session.session_type, "value") else str(session.session_type),
+
+        session_type=(
+            session.session_type.value
+            if hasattr(
+                session.session_type,
+                "value",
+            )
+            else str(session.session_type)
+        ),
+
         title=session.title,
         description=session.description,
+
         start_at=session.start_at,
         end_at=session.end_at,
+        unlock_at=session.unlock_at,
+
+        submission_enabled=(
+            session.submission_enabled
+        ),
+
         meeting_url=session.meeting_url,
         recording_url=session.recording_url,
-        status=session.status.value if hasattr(session.status, "value") else str(session.status),
+        transcript_url=session.transcript_url,
+
+        status=(
+            session.status.value
+            if hasattr(session.status, "value")
+            else str(session.status)
+        ),
+
         sequence=session.sequence,
-        has_recording=bool(session.recording_url),
-        week_title=session.week.title if session.week else None,
-        week_number=session.week.week_number if session.week else None,
+
+        is_unlocked=True,
+
+        has_recording=bool(
+            session.recording_url
+        ),
+
+        has_transcript=bool(
+            session.transcript_url
+        ),
+
+        week_title=(
+            session.week.title
+            if session.week
+            else None
+        ),
+
+        week_number=(
+            session.week.week_number
+            if session.week
+            else None
+        ),
     )

@@ -35,6 +35,8 @@ import {
   Server,
   Database,
   ArrowRight,
+  Lock,
+  Unlock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -68,6 +70,8 @@ import {
   deleteWeek,
 
   inviteFellow,
+  unlockSession,
+  lockSession,
 } from "@/lib/api/admin";
 
 
@@ -1637,12 +1641,88 @@ export default function AdminHomePage() {
                                 : "Schedule not announced"}
                             </td>
 
-                            <td className="py-3 px-4 capitalize">
-                              {session.status}
+                            <td className="py-3 px-4">
+                              <div className="flex flex-col gap-1">
+                                <span className="capitalize">
+                                  {session.status}
+                                </span>
+
+                                <span
+                                  className={`inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-bold ${session.is_unlocked
+                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                      : "bg-amber-50 text-amber-7 00 border border-amber-200"
+                                    }`}
+                                >
+                                  {session.is_unlocked ? (
+                                    <>
+                                      <Unlock className="w-3 h-3" />
+                                      Unlocked
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Lock className="w-3 h-3" />
+                                      Locked
+                                    </>
+                                  )}
+                                </span>
+                              </div>
                             </td>
 
                             <td className="py-3 px-4">
                               <div className="flex justify-end gap-2">
+                                {session.is_unlocked ? (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (
+                                        !window.confirm(
+                                          `Lock Session ${session.session_number}? Fellows will lose access to this Session and its content.`
+                                        )
+                                      ) {
+                                        return;
+                                      }
+
+                                      try {
+                                        await lockSession(session.id);
+                                        await loadData();
+                                      } catch (err: any) {
+                                        window.alert(
+                                          err?.message ||
+                                          "Unable to lock session."
+                                        );
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg border border-amber-200 text-amber-700 font-semibold"
+                                  >
+                                    Lock
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (
+                                        !window.confirm(
+                                          `Unlock Session ${session.session_number}? Fellows will gain access to this Session and its content.`
+                                        )
+                                      ) {
+                                        return;
+                                      }
+
+                                      try {
+                                        await unlockSession(session.id);
+                                        await loadData();
+                                      } catch (err: any) {
+                                        window.alert(
+                                          err?.message ||
+                                          "Unable to unlock session."
+                                        );
+                                      }
+                                    }}
+                                    className="px-3 py-1.5 rounded-lg border border-emerald-200 text-emerald-700 font-semibold"
+                                  >
+                                    Unlock
+                                  </button>
+                                )}
 
                                 <button
                                   type="button"

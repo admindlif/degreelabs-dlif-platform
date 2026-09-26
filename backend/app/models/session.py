@@ -3,6 +3,7 @@ from enum import Enum
 from uuid import UUID, uuid4
 
 from sqlalchemy import (
+    Boolean,
     DateTime,
     Enum as SQLEnum,
     ForeignKey,
@@ -10,6 +11,7 @@ from sqlalchemy import (
     String,
     UniqueConstraint,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID as PostgreSQLUUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -100,6 +102,26 @@ class Session(Base):
         nullable=True,
     )
 
+    unlock_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
+
+    is_unlocked: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
+    submission_enabled: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+        server_default=text("false"),
+    )
+
     meeting_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
@@ -131,6 +153,11 @@ class Session(Base):
     )
 
     recording_url: Mapped[str | None] = mapped_column(
+        String(500),
+        nullable=True,
+    )
+
+    transcript_url: Mapped[str | None] = mapped_column(
         String(500),
         nullable=True,
     )
