@@ -9,7 +9,6 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DiscoverWeek, SessionSummary } from "@/lib/api/types";
-import { DISCOVER_CURRICULUM } from "@/lib/terminology";
 
 interface FourWeekRoadmapProps {
   weeks?: DiscoverWeek[] | null;
@@ -37,7 +36,6 @@ interface DisplayWeek {
   sessions: DisplaySession[];
   weeklyOutput?: {
     title: string;
-    dueDate: string;
     status: "submitted" | "pending" | "locked";
   };
 }
@@ -94,26 +92,22 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
     switch (weekNum) {
       case 1:
         return {
-          title: DISCOVER_CURRICULUM.week1.output,
-          dueDate: "Sunday, Oct 15 • 11:59 PM",
+          title: "Business Diagnosis & Problem Framing Pack",
           status: "pending" as const,
         };
       case 2:
         return {
-          title: DISCOVER_CURRICULUM.week2.output,
-          dueDate: "Sunday, Oct 22 • 11:59 PM",
+          title: "Strategic Possibility & Choice Pack",
           status: "locked" as const,
         };
       case 3:
         return {
-          title: DISCOVER_CURRICULUM.week3.output,
-          dueDate: "Sunday, Oct 29 • 11:59 PM",
+          title: "Strategy & Execution Blueprint",
           status: "locked" as const,
         };
       case 4:
         return {
           title: "Executive Proposal · Company Presentation · Strategic Design Portfolio",
-          dueDate: "Friday, Nov 03 • 5:00 PM",
           status: "locked" as const,
         };
       default:
@@ -178,163 +172,7 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
       });
     }
 
-    // Default canonical fallback if database not yet loaded
-    return [
-      {
-        weekNumber: "WEEK 01",
-        title: "DISCOVER THE REAL PROBLEM",
-        status: "active",
-        statusBadge: "Current Week • In Progress",
-        statusBadgeVariant: "brand",
-        description:
-          "Frame the business context, analyze company challenge findings, decompose the industry problem, and establish team collaboration workflows.",
-        sessions: [
-          {
-            id: "s0",
-            number: "Session 0",
-            title: "DLIF Onboarding & Program Setup",
-            status: "completed",
-            date: "Monday, Oct 09",
-            duration: "1h 30m",
-            hasRecording: true,
-          },
-          {
-            id: "s1",
-            number: "Session 1: Learn + Work",
-            title: "Business Context & Evidence",
-            status: "completed",
-            date: "Tuesday, Oct 10",
-            duration: "2h 00m",
-            hasRecording: true,
-          },
-          {
-            id: "s2",
-            number: "Session 2: Learn + Work",
-            title: "Problem Framing & Diagnosis",
-            status: "live_soon",
-            date: "Today, 6:00 PM IST",
-            duration: "2h 00m",
-          },
-          {
-            id: "s3",
-            number: "Session 3: Output + Review (Gate)",
-            title: "Discovery Review",
-            status: "upcoming",
-            date: "Sunday, Oct 15",
-            duration: "1h 30m",
-          },
-        ],
-        weeklyOutput: getWeekOutputInfo(1),
-      },
-      {
-        weekNumber: "WEEK 02",
-        title: "CREATE STRATEGIC POSSIBILITIES",
-        status: "upcoming",
-        statusBadge: "Unlocks Oct 16",
-        statusBadgeVariant: "blue",
-        description:
-          "Conduct targeted inquiry, evaluate competitive solutions, and synthesize ≥3 Strategic possibilities using WWHTBT (What Would Have to Be True?) as the evidence filter.",
-        sessions: [
-          {
-            id: "s4",
-            number: "Session 4: Learn + Work",
-            title: "Research & Possibility Generation",
-            status: "upcoming",
-            date: "Tuesday, Oct 17",
-            duration: "2h 00m",
-          },
-          {
-            id: "s5",
-            number: "Session 5: Learn + Work",
-            title: "What Would Have to Be True? (WWHTBT)",
-            status: "upcoming",
-            date: "Thursday, Oct 19",
-            duration: "2h 00m",
-          },
-          {
-            id: "s6",
-            number: "Session 6: Output + Review (Gate)",
-            title: "Strategic Choice Review",
-            status: "locked",
-            date: "Sunday, Oct 22",
-            duration: "1h 30m",
-          },
-        ],
-        weeklyOutput: getWeekOutputInfo(2),
-      },
-      {
-        weekNumber: "WEEK 03",
-        title: "DESIGN THE STRATEGY",
-        status: "locked",
-        statusBadge: "Unlocks Oct 23",
-        statusBadgeVariant: "muted",
-        description:
-          "Develop the strategic choice, apply execution thinking to blueprint the roadmap, and build the Strategy & Execution Blueprint for review.",
-        sessions: [
-          {
-            id: "s7",
-            number: "Session 7: Learn + Work",
-            title: "Integrated Strategy Choices",
-            status: "locked",
-            date: "Tuesday, Oct 24",
-            duration: "2h 00m",
-          },
-          {
-            id: "s8",
-            number: "Session 8: Learn + Work",
-            title: "Execution Architecture",
-            status: "locked",
-            date: "Thursday, Oct 26",
-            duration: "2h 00m",
-          },
-          {
-            id: "s9",
-            number: "Session 9: Output + Review (Gate)",
-            title: "Strategy Review",
-            status: "locked",
-            date: "Sunday, Oct 29",
-            duration: "1h 30m",
-          },
-        ],
-        weeklyOutput: getWeekOutputInfo(3),
-      },
-      {
-        weekNumber: "WEEK 04",
-        title: "BUILD THE CASE FOR ACTION",
-        status: "locked",
-        statusBadge: "Unlocks Oct 30",
-        statusBadgeVariant: "muted",
-        description:
-          "Synthesize all company challenge findings into three separate final outputs: Executive Proposal, Company Presentation, and Strategic Design Portfolio.",
-        sessions: [
-          {
-            id: "s10",
-            number: "Session 10: Learn + Work",
-            title: "Proposal Architecture",
-            status: "locked",
-            date: "Tuesday, Oct 31",
-            duration: "2h 00m",
-          },
-          {
-            id: "s11",
-            number: "Session 11: Learn + Work",
-            title: "Executive Communication",
-            status: "locked",
-            date: "Thursday, Nov 02",
-            duration: "2h 00m",
-          },
-          {
-            id: "s12",
-            number: "Session 12: Output + Review (Gate)",
-            title: "Final DISCOVER Review",
-            status: "locked",
-            date: "Friday, Nov 03",
-            duration: "3h 00m",
-          },
-        ],
-        weeklyOutput: getWeekOutputInfo(4),
-      },
-    ];
+    return [];
   }, [weeks]);
 
   return (
@@ -343,10 +181,10 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3">
         <div>
           <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-            Your DISCOVER Journey
+            DISCOVER Roadmap
           </h2>
           <p className="text-sm md:text-base text-[var(--color-text-body)] mt-1">
-            Progress step-by-step from industry problem definition to final executive proposal defense.
+            Understand before solving. Evidence before confidence. Choices before execution.
           </p>
         </div>
         <Badge variant="brand" size="md">
@@ -356,7 +194,11 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
 
       {/* Week Timeline Cards */}
       <div className="space-y-6">
-        {displayWeeks.map((week) => {
+        {displayWeeks.length === 0 ? (
+          <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-8 text-center text-sm text-[var(--color-text-muted)]">
+            Roadmap data is unavailable.
+          </div>
+        ) : displayWeeks.map((week) => {
           const isActive = week.status === "active";
           const isLocked = week.status === "locked";
 
@@ -497,9 +339,6 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <span className="text-[var(--color-text-muted)] font-medium">
-                      Due: {week.weeklyOutput.dueDate}
-                    </span>
                     {week.weeklyOutput.status === "pending" ? (
                       <Button variant="primary" size="sm">
                         Submit Weekly Output

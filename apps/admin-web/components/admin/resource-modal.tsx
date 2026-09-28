@@ -337,7 +337,7 @@ export function ResourceModal({
                   event.target.value
                 )
               }
-              placeholder="Working Board Template"
+              placeholder="Resource title"
               className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-sm"
             />
           </div>
@@ -355,7 +355,7 @@ export function ResourceModal({
                   event.target.value
                 )
               }
-              placeholder="Google Drive • Template"
+              placeholder="Resource subtitle"
               className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-sm"
             />
           </div>

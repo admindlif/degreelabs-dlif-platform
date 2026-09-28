@@ -213,7 +213,7 @@ export function TeamModal({
                   event.target.value
                 )
               }
-              placeholder="Alpha"
+              placeholder="Team name"
               className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)]"
             />
           </div>
@@ -250,7 +250,7 @@ export function TeamModal({
                   event.target.value
                 )
               }
-              placeholder="Describe the industry challenge assigned to this Team."
+              placeholder="Company challenge"
               className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)]"
             />
           </div>

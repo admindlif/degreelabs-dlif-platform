@@ -2437,7 +2437,7 @@ export default function AdminHomePage() {
                   required
                   value={inviteFirstName}
                   onChange={(e) => setInviteFirstName(e.target.value)}
-                  placeholder="e.g. Samantha"
+                  placeholder="First name"
                   className="w-full px-3 py-2 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] focus:outline-none focus:border-[var(--color-brand-blue)]"
                 />
               </div>
@@ -2449,7 +2449,7 @@ export default function AdminHomePage() {
                   required
                   value={inviteLastName}
                   onChange={(e) => setInviteLastName(e.target.value)}
-                  placeholder="e.g. Reed"
+                  placeholder="Last name"
                   className="w-full px-3 py-2 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] focus:outline-none focus:border-[var(--color-brand-blue)]"
                 />
               </div>
@@ -2461,7 +2461,7 @@ export default function AdminHomePage() {
                   required
                   value={inviteEmail}
                   onChange={(e) => setInviteEmail(e.target.value)}
-                  placeholder="e.g. samantha.reed@example.com"
+                  placeholder="Email address"
                   className="w-full px-3 py-2 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] focus:outline-none focus:border-[var(--color-brand-blue)]"
                 />
               </div>

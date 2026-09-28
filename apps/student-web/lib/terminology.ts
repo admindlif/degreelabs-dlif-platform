@@ -21,20 +21,20 @@ export const PHASES = {
     name: "DISCOVER",
     action: "THINK",
     full: "DISCOVER (THINK)",
-    tagline: "The classroom gives knowledge. Discover builds capability.",
+    description: "A 4-week strategic problem-solving apprenticeship.",
     weeks: 4,
   },
   VALIDATE: {
     name: "VALIDATE",
     action: "PROVE",
     full: "VALIDATE (PROVE)",
-    tagline: "Prove the solution in practice.",
+    duration: "4 weeks",
   },
   GROW: {
     name: "GROW",
     action: "DELIVER",
     full: "GROW (DELIVER)",
-    tagline: "Deliver real industry impact.",
+    duration: "3–6 months",
   },
   TRIAD: "DISCOVER (THINK) → VALIDATE (PROVE) → GROW (DELIVER)",
 } as const;
@@ -64,10 +64,6 @@ export const WORK_CONCEPTS = {
   DISCOVER_PROGRESS: "DISCOVER Progress",
 } as const;
 
-export const CREDENTIALS = {
-  DISCOVER: "Certificate in Problem Analysis & Solution Architecture (DISCOVER)",
-} as const;
-
 export const DISCOVER_CURRICULUM = {
   week1: {
     weekNumber: "WEEK 01",
@@ -95,7 +91,7 @@ export const DISCOVER_CURRICULUM = {
   week3: {
     weekNumber: "WEEK 03",
     title: "DESIGN THE STRATEGY",
-    coreQuestion: "How will we make this happen?",
+    coreQuestion: "If this is our choice, how will it actually work?",
     output: "Strategy & Execution Blueprint",
     sessions: [
       { id: "s7", number: "Session 7: Learn + Work", title: "Integrated Strategy Choices" },
@@ -106,7 +102,7 @@ export const DISCOVER_CURRICULUM = {
   week4: {
     weekNumber: "WEEK 04",
     title: "BUILD THE CASE FOR ACTION",
-    coreQuestion: "Why should they believe and invest?",
+    coreQuestion: "Why should the company believe us?",
     outputs: [
       "Executive Proposal",
       "Company Presentation",
@@ -120,11 +116,10 @@ export const DISCOVER_CURRICULUM = {
   },
 } as const;
 
-export const ASSESSMENT_DIMENSIONS = [
-  "Problem Diagnosis",
-  "Strategic Possibility Generation",
-  "Solution Architecture",
-  "Executive Synthesis",
-  "Evidence & Argument Quality",
-  "Professional Execution",
+export const DISCOVER_CAPABILITIES = [
+  "Business Understanding",
+  "Evidence & Problem Framing",
+  "Strategic Choice",
+  "Execution Thinking",
+  "Professional Communication",
 ] as const;

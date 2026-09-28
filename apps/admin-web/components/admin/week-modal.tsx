@@ -209,7 +209,7 @@ export function WeekModal({
               onChange={(e) =>
                 setStrategicQuestion(e.target.value)
               }
-              placeholder="What problem are we really trying to solve?"
+              placeholder="What is really happening here?"
               className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-sm"
             />
           </div>

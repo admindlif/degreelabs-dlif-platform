@@ -52,45 +52,16 @@ function resourceAccentColor(type: string) {
   }
 }
 
-// ── Fallback static resources (displayed only if API returns empty) ─────────
-const FALLBACK_RESOURCES: PhaseResource[] = [
-  {
-    id: "fallback-handbook",
-    title: "DLIF Fellow Handbook — DISCOVER (v1.0, Sept 2026)",
-    subtitle: "PDF • v1.0 (Sept 2026)",
-    resource_type: "handbook",
-    url: null,
-    is_downloadable: true,
-    sequence: 1,
-  },
-  {
-    id: "fallback-rubric",
-    title: "Problem Rubric & Guidelines",
-    subtitle: "Certificate in Problem Analysis & Solution Architecture (DISCOVER)",
-    resource_type: "rubric",
-    url: null,
-    is_downloadable: false,
-    sequence: 2,
-  },
-];
-
 export function FellowToolkit() {
   const [team, setTeam] = React.useState<FellowTeam | null>(null);
-  const [resources, setResources] = React.useState<PhaseResource[]>(FALLBACK_RESOURCES);
+  const [resources, setResources] = React.useState<PhaseResource[]>([]);
   const [teamLoading, setTeamLoading] = React.useState(true);
   const [resourcesLoading, setResourcesLoading] = React.useState(true);
 
   React.useEffect(() => {
     getFellowResources()
-      .then((data) => {
-        if (data && data.length > 0) {
-          setResources(data);
-        }
-        // if empty, keep fallback
-      })
-      .catch(() => {
-        // keep fallback on error
-      })
+      .then((data) => setResources(data ?? []))
+      .catch(() => setResources([]))
       .finally(() => setResourcesLoading(false));
 
     getFellowTeam()
@@ -99,10 +70,6 @@ export function FellowToolkit() {
       .finally(() => setTeamLoading(false));
   }, []);
 
-  const phaseBadgeLabel = resources.length > 0
-    ? "DISCOVER (THINK) Phase"
-    : "DISCOVER (THINK) Phase";
-
   return (
     <div className="space-y-6">
       {/* ── Resources Toolkit Card ─────────────────────────────────────── */}
@@ -110,11 +77,11 @@ export function FellowToolkit() {
         <div className="flex items-center justify-between mb-4">
           <CardTitle className="text-xl font-bold">Fellow Toolkit</CardTitle>
           <Badge variant="brand" size="sm">
-            {phaseBadgeLabel}
+            DISCOVER (THINK) Phase
           </Badge>
         </div>
         <CardDescription className="text-xs text-[var(--color-text-body)] mb-4">
-          Essential reference material, guidelines, and templates for your fellowship.
+          Resources
         </CardDescription>
 
         <div className="space-y-2.5">
@@ -127,7 +94,7 @@ export function FellowToolkit() {
                 />
               ))}
             </div>
-          ) : (
+          ) : resources.length > 0 ? (
             resources.map((resource) => {
               const accent = resourceAccentColor(resource.resource_type);
               const handleClick = () => {
@@ -164,6 +131,10 @@ export function FellowToolkit() {
                 </div>
               );
             })
+          ) : (
+            <div className="rounded-xl border border-[var(--color-border-default)] bg-white p-4 text-sm text-[var(--color-text-muted)]">
+              No resources yet.
+            </div>
           )}
         </div>
       </Card>

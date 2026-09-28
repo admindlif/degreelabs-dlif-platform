@@ -1,7 +1,6 @@
 import { CheckCircle2 } from "lucide-react";
 
 import { Badge } from "@/components/ui/badge";
-import { SerifHighlight } from "@/components/ui/serif-highlight";
 import {
   CohortSummary,
   DiscoverProgress,
@@ -45,8 +44,7 @@ export function DiscoverHero({
           </h1>
 
           <p className="text-lg font-medium leading-relaxed text-[var(--color-text-body)] md:text-xl">
-            The classroom gives knowledge.{" "}
-            <SerifHighlight>Discover builds capability.</SerifHighlight>
+            A 4-week strategic problem-solving apprenticeship.
           </p>
         </div>
 
