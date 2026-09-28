@@ -15,19 +15,29 @@ import {
 } from "lucide-react";
 
 import { getFellowSessions } from "@/lib/api/discover";
-import { SessionSummary } from "@/lib/api/types";
+import { getFellowTeam } from "@/lib/api/toolkit";
+
+import {
+  FellowContext,
+  SessionSummary,
+} from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
 
 interface SidebarProps {
   className?: string;
+  context?: FellowContext | null;
+  mobileOpen?: boolean;
+  onNavigate?: () => void;
 }
 
 function SessionSidebarItem({
   session,
+  onNavigate,
 }: {
   session: SessionSummary;
+  onNavigate?: () => void;
 }) {
   const locked = !session.is_unlocked;
 
@@ -56,6 +66,7 @@ function SessionSidebarItem({
   return (
     <Link
       href={`/sessions/${session.id}`}
+      onClick={onNavigate}
       className="
         flex items-center gap-2
         px-3 py-2 rounded-lg
@@ -81,12 +92,19 @@ function SessionSidebarItem({
   );
 }
 
-export function Sidebar({ className }: SidebarProps) {
+export function Sidebar({
+  className,
+  context,
+  mobileOpen = false,
+  onNavigate,
+}: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
   const [sessions, setSessions] =
     React.useState<SessionSummary[]>([]);
+
+  const [teamName, setTeamName] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     getFellowSessions()
@@ -97,6 +115,10 @@ export function Sidebar({ className }: SidebarProps) {
           error
         );
       });
+
+    getFellowTeam()
+      .then((team) => setTeamName(team.name))
+      .catch(() => setTeamName(null));
   }, []);
 
   const induction = sessions.find(
@@ -129,7 +151,16 @@ export function Sidebar({ className }: SidebarProps) {
     ),
   };
 
-  const navigationGroups = [
+  const navigationGroups: Array<{
+    title: string;
+    items: Array<{
+      name: string;
+      href: string;
+      icon: typeof Users;
+      badge?: string;
+      badgeVariant?: "blue";
+    }>;
+  }> = [
     {
       title: "Collaboration",
       items: [
@@ -137,7 +168,7 @@ export function Sidebar({ className }: SidebarProps) {
           name: "My Team",
           href: "/team",
           icon: Users,
-          badge: "Alpha-4",
+          badge: teamName ?? undefined,
           badgeVariant: "blue" as const,
         },
       ],
@@ -149,8 +180,6 @@ export function Sidebar({ className }: SidebarProps) {
           name: "Notifications",
           href: "/notifications",
           icon: Bell,
-          badge: "2",
-          badgeVariant: "brand" as const,
         },
         {
           name: "Profile & 2FA",
@@ -165,13 +194,14 @@ export function Sidebar({ className }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "w-[260px] h-screen sticky top-0 flex flex-col bg-[var(--color-bg-canvas)] border-r border-[var(--color-border-default)] select-none z-30",
+        "fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(260px,calc(100vw-3rem))] flex-col border-r border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:w-[260px] lg:translate-x-0 lg:shadow-none",
+        mobileOpen ? "translate-x-0" : "-translate-x-full",
         className
       )}
     >
       {/* Brand Header */}
-      <div className="h-20 flex items-center px-6 border-b border-[var(--color-border-default)] gap-3">
-        <Link href="/" className="flex items-center gap-3 group">
+      <div className="flex h-16 shrink-0 items-center gap-3 border-b border-[var(--color-border-default)] px-5">
+        <Link href="/" onClick={onNavigate} className="flex items-center gap-3 group">
           <div className="relative w-36 h-9 flex items-center">
             <Image
               src="/degreelabs-logo.png"
@@ -186,7 +216,7 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
 
       {/* Dedicated Portal Badge */}
-      <div className="px-5 pt-4 pb-2">
+      <div className="shrink-0 px-4 pb-2 pt-3">
         <div className="bg-[var(--color-bg-subtle)] px-3 py-2 rounded-xl flex items-center justify-between border border-[var(--color-border-default)]">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-[var(--color-brand-blue)]" />
@@ -201,12 +231,13 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
 
       {/* Navigation Sections */}
-      <div className="flex-1 overflow-y-auto px-3 py-3 space-y-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-2 space-y-4">
         {/* DISCOVER Session Navigation */}
-        <div className="space-y-5">
+        <div className="space-y-4">
           <div>
             <Link
               href="/"
+              onClick={onNavigate}
               className={cn(
                 "flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-bold",
                 pathname === "/"
@@ -227,6 +258,7 @@ export function Sidebar({ className }: SidebarProps) {
 
               <SessionSidebarItem
                 session={induction}
+                onNavigate={onNavigate}
               />
             </div>
           )}
@@ -248,6 +280,7 @@ export function Sidebar({ className }: SidebarProps) {
                     <SessionSidebarItem
                       key={session.id}
                       session={session}
+                      onNavigate={onNavigate}
                     />
                   ))}
                 </div>
@@ -271,6 +304,7 @@ export function Sidebar({ className }: SidebarProps) {
                   <Link
                     key={item.name}
                     href={item.href}
+                    onClick={onNavigate}
                     className={cn(
                       "flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 group relative",
                       isActive
@@ -283,7 +317,7 @@ export function Sidebar({ className }: SidebarProps) {
                       <span className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[var(--color-brand-orange)]" />
                     )}
 
-                    <div className="flex items-center gap-2.5">
+                    <div className="flex min-w-0 items-center gap-2.5">
                       <Icon
                         className={cn(
                           "w-4 h-4 transition-colors",
@@ -292,14 +326,14 @@ export function Sidebar({ className }: SidebarProps) {
                             : "text-[var(--color-text-muted)] group-hover:text-[var(--color-text-primary)]"
                         )}
                       />
-                      <span>{item.name}</span>
+                      <span className="truncate">{item.name}</span>
                     </div>
 
                     {item.badge && (
                       <Badge
                         variant={item.badgeVariant || "muted"}
                         size="sm"
-                        className="text-[9px] px-2 py-0.5 font-bold"
+                        className="max-w-24 truncate text-[9px] px-2 py-0.5 font-bold"
                       >
                         {item.badge}
                       </Badge>
@@ -313,29 +347,31 @@ export function Sidebar({ className }: SidebarProps) {
       </div>
 
       {/* Cohort & User Footer Info */}
-      <div className="p-4 border-t border-[var(--color-border-default)] bg-[var(--color-bg-surface)]">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse" />
-            <span className="text-xs font-semibold text-[var(--color-text-secondary)]">
-              Cohort 2026-A
+      <div className="shrink-0 border-t border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-2">
+            <span className="w-2 h-2 shrink-0 rounded-full bg-[var(--color-success)]" />
+            <span className="truncate text-xs font-semibold text-[var(--color-text-secondary)]">
+              {context?.cohort.name ?? "Cohort"}
             </span>
           </div>
-          <Badge variant="blue" size="sm">
-            DISCOVER (THINK)
+          <Badge variant="blue" size="sm" className="max-w-28 shrink-0 truncate">
+            {context
+              ? `${context.current_phase.name} (${context.current_phase.development_role})`
+              : "Phase"}
           </Badge>
         </div>
 
-        <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-default)]">
+        <div className="flex items-center justify-between border-t border-[var(--color-border-default)] pt-2">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-[var(--color-brand-navy)] text-white text-xs font-bold flex items-center justify-center shrink-0">
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--color-brand-navy)] text-[10px] font-bold text-white">
               {user ? `${user.first_name?.[0] || ""}${user.last_name?.[0] || ""}`.toUpperCase() : "FL"}
             </div>
             <div className="flex flex-col min-w-0">
-              <span className="text-xs font-bold text-[var(--color-text-primary)] leading-tight truncate">
+              <span className="truncate text-[11px] font-bold leading-tight text-[var(--color-text-primary)]">
                 {user ? `${user.first_name} ${user.last_name}` : "Fellow"}
               </span>
-              <span className="text-[10px] text-[var(--color-text-muted)] truncate">
+              <span className="truncate text-[9px] text-[var(--color-text-muted)]">
                 {user?.two_factor_enabled ? "2FA Enabled" : "Active"}
               </span>
             </div>

@@ -1,8 +1,13 @@
-import * as React from "react";
 import { CheckCircle2 } from "lucide-react";
-import { SerifHighlight } from "@/components/ui/serif-highlight";
+
 import { Badge } from "@/components/ui/badge";
-import { CohortSummary, DiscoverProgress, PhaseSummary, SessionSummary } from "@/lib/api/types";
+import { SerifHighlight } from "@/components/ui/serif-highlight";
+import {
+  CohortSummary,
+  DiscoverProgress,
+  PhaseSummary,
+  SessionSummary,
+} from "@/lib/api/types";
 
 interface DiscoverHeroProps {
   cohort?: CohortSummary | null;
@@ -17,26 +22,17 @@ export function DiscoverHero({
   progress,
   nextSession,
 }: DiscoverHeroProps) {
-  const cohortLabel = cohort?.code ? `DLIF Fellow ${cohort.code}` : "DLIF Fellow";
-  const currentWeek = progress?.current_week ?? 1;
-  const totalWeeks = progress?.total_weeks ?? 4;
-  const percentage = progress?.percentage ?? 25;
-  const completedSessions = progress?.completed_sessions ?? 2;
-  const nextSessionNum = nextSession
-    ? String(nextSession.session_number).padStart(2, "0")
-    : "--";
+  const cohortLabel = cohort?.name ?? "DLIF Fellow";
 
   return (
-    <div className="relative overflow-hidden rounded-[24px] bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] p-8 md:p-10 mb-8">
-      {/* Background Subtle Gradient Accents */}
-      <div className="absolute -top-24 -right-24 w-96 h-96 bg-[var(--color-brand-orange-subtle)] rounded-full blur-3xl pointer-events-none opacity-60" />
-      <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-[var(--color-brand-blue-subtle)] rounded-full blur-3xl pointer-events-none opacity-50" />
+    <div className="relative mb-8 overflow-hidden rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-6 sm:p-8 md:p-10">
+      <div className="absolute -top-24 -right-24 h-96 w-96 rounded-full bg-[var(--color-brand-orange-subtle)] opacity-60 blur-3xl pointer-events-none" />
+      <div className="absolute -bottom-24 -left-24 h-80 w-80 rounded-full bg-[var(--color-brand-blue-subtle)] opacity-50 blur-3xl pointer-events-none" />
 
-      <div className="relative z-10 flex flex-col lg:flex-row lg:items-end justify-between gap-6">
-        <div className="space-y-3 max-w-2xl">
-          {/* Eyebrow */}
-          <div className="flex items-center gap-2">
-            <Badge variant="blue" size="sm">
+      <div className="relative z-10 flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+        <div className="min-w-0 max-w-2xl space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="blue" size="sm" className="max-w-full truncate">
               {cohortLabel}
             </Badge>
             <span className="text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
@@ -44,53 +40,62 @@ export function DiscoverHero({
             </span>
           </div>
 
-          {/* Main Title */}
-          <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
-            {phase?.name || "DISCOVER"}
+          <h1 className="break-words text-3xl font-extrabold tracking-tight text-[var(--color-text-primary)] md:text-5xl">
+            {phase?.name ?? "Fellowship"}
           </h1>
 
-          {/* Signature Brand Voice with Italic Serif Accent */}
-          <p className="text-lg md:text-xl text-[var(--color-text-body)] font-medium leading-relaxed">
+          <p className="text-lg font-medium leading-relaxed text-[var(--color-text-body)] md:text-xl">
             The classroom gives knowledge.{" "}
             <SerifHighlight>Discover builds capability.</SerifHighlight>
           </p>
         </div>
 
-        {/* 4-Week Journey Progress Widget */}
-        <div className="bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] rounded-2xl p-5 min-w-[280px] shadow-xs">
-          <div className="flex items-center justify-between text-xs font-semibold mb-2">
-            <span className="text-[var(--color-text-secondary)]">DISCOVER Progress</span>
-            <span className="text-[var(--color-brand-orange)] font-bold">
-              Week {currentWeek} of {totalWeeks} • {percentage}%
-            </span>
-          </div>
+        <div className="w-full rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] p-5 shadow-xs lg:w-auto lg:min-w-[280px]">
+          {progress ? (
+            <>
+              <div className="mb-2 flex items-center justify-between gap-3 text-xs font-semibold">
+                <span className="text-[var(--color-text-secondary)]">DISCOVER Progress</span>
+                <span className="text-right font-bold text-[var(--color-brand-orange)]">
+                  Week {progress.current_week} of {progress.total_weeks} • {progress.percentage}%
+                </span>
+              </div>
 
-          {/* Dynamic 4-Segment Progress Bar */}
-          <div className="grid grid-cols-4 gap-1.5 mb-3">
-            {Array.from({ length: totalWeeks }).map((_, idx) => {
-              const weekNum = idx + 1;
-              const isPast = weekNum < currentWeek;
-              const isCurrent = weekNum === currentWeek;
-              return (
-                <div
-                  key={weekNum}
-                  className={`h-2 rounded-full transition-colors ${
-                    isPast || isCurrent
-                      ? "bg-[var(--color-brand-orange)]"
-                      : "bg-[var(--color-border-default)]"
-                  }`}
-                  title={`W${weekNum}: ${isPast ? "Done" : isCurrent ? "Active" : "Upcoming"}`}
-                />
-              );
-            })}
-          </div>
+              <div
+                className="mb-3 grid gap-1.5"
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(progress.total_weeks, 1)}, minmax(0, 1fr))`,
+                }}
+              >
+                {Array.from({ length: progress.total_weeks }).map((_, index) => {
+                  const weekNumber = index + 1;
+                  const reached = weekNumber <= progress.current_week;
 
-          <div className="flex items-center justify-between text-[11px] text-[var(--color-text-muted)]">
-            <span className="flex items-center gap-1">
-              <CheckCircle2 className="w-3.5 h-3.5 text-[var(--color-success)]" /> {completedSessions} Sessions done
-            </span>
-            <span>Next: Session {nextSessionNum}</span>
-          </div>
+                  return (
+                    <div
+                      key={weekNumber}
+                      className={`h-2 rounded-full ${reached
+                        ? "bg-[var(--color-brand-orange)]"
+                        : "bg-[var(--color-border-default)]"
+                      }`}
+                      title={`Week ${weekNumber}: ${reached ? "Reached" : "Upcoming"}`}
+                    />
+                  );
+                })}
+              </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-text-muted)]">
+                <span className="flex items-center gap-1">
+                  <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" />
+                  {progress.completed_sessions} Sessions done
+                </span>
+                {nextSession && <span>Next: Session {nextSession.session_number}</span>}
+              </div>
+            </>
+          ) : (
+            <p className="text-sm text-[var(--color-text-muted)]">
+              Progress is unavailable.
+            </p>
+          )}
         </div>
       </div>
     </div>

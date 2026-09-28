@@ -1,41 +1,57 @@
 "use client";
 
 import * as React from "react";
-import { Search, Bell, ShieldCheck, ChevronRight, Video } from "lucide-react";
+import Link from "next/link";
+import { Bell, ChevronRight, Menu, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { SessionSummary } from "@/lib/api/types";
 
 interface TopbarProps {
   breadcrumbs?: string[];
   roleTitle?: string;
   nextSession?: SessionSummary | null;
+  onMenuClick?: () => void;
 }
 
 export function Topbar({
-  breadcrumbs = ["Cohort 2026-A", "DISCOVER (THINK)", "Week 1"],
+  breadcrumbs = ["Fellow Portal"],
   roleTitle = "Fellow Portal",
   nextSession,
+  onMenuClick,
 }: TopbarProps) {
   const nextSessionLabel = nextSession
     ? nextSession.status === "live"
-      ? `Live Now: Session ${String(nextSession.session_number).padStart(2, "0")}`
-      : `Next: Session ${String(nextSession.session_number).padStart(2, "0")}`
-    : "Next: Session 02";
+      ? `Live Now: Session ${nextSession.session_number}`
+      : `Next: Session ${nextSession.session_number}`
+    : null;
 
   return (
-    <header className="h-16 sticky top-0 z-20 bg-[var(--color-bg-canvas)]/90 backdrop-blur-md border-b border-[var(--color-border-default)] px-6 flex items-center justify-between gap-4">
-      {/* Breadcrumbs */}
-      <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)] font-medium">
+    <header className="h-16 sticky top-0 z-20 bg-[var(--color-bg-canvas)]/90 backdrop-blur-md border-b border-[var(--color-border-default)] px-4 sm:px-6 flex items-center justify-between gap-3">
+      <button
+        type="button"
+        onClick={onMenuClick}
+        className="lg:hidden inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)]"
+        aria-label="Open navigation"
+      >
+        <Menu className="h-4 w-4" />
+      </button>
+
+      <div className="flex min-w-0 flex-1 items-center gap-1.5 overflow-hidden text-xs font-medium text-[var(--color-text-muted)] sm:gap-2">
         {breadcrumbs.map((crumb, idx) => (
-          <React.Fragment key={crumb}>
-            {idx > 0 && <ChevronRight className="w-3.5 h-3.5 opacity-50" />}
+          <React.Fragment key={`${crumb}-${idx}`}>
+            {idx > 0 && (
+              <ChevronRight
+                className={`h-3.5 w-3.5 shrink-0 opacity-50 ${
+                  idx === breadcrumbs.length - 1 ? "block" : "hidden sm:block"
+                }`}
+              />
+            )}
             <span
-              className={
+              className={`truncate ${
                 idx === breadcrumbs.length - 1
                   ? "font-bold text-[var(--color-text-primary)]"
-                  : "hover:text-[var(--color-text-secondary)] cursor-pointer"
-              }
+                  : "hidden text-[var(--color-text-secondary)] sm:inline"
+              }`}
             >
               {crumb}
             </span>
@@ -43,8 +59,7 @@ export function Topbar({
         ))}
       </div>
 
-      {/* Center Search / Status Pill */}
-      <div className="hidden md:flex items-center flex-1 max-w-md mx-4">
+      <div className="hidden xl:flex items-center flex-1 max-w-md mx-4">
         <div className="relative w-full">
           <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
           <input
@@ -55,27 +70,24 @@ export function Topbar({
         </div>
       </div>
 
-      {/* Right Controls */}
-      <div className="flex items-center gap-3">
-        {/* Next Session Quick Trigger */}
-        <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-brand-orange-subtle)] border border-[#FFD5C6]">
-          <span className="w-2 h-2 rounded-full bg-[var(--color-brand-orange)] animate-pulse" />
-          <span className="text-xs font-bold text-[var(--color-brand-orange)]">
-            {nextSessionLabel}
-          </span>
-        </div>
+      <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+        {nextSessionLabel && (
+          <div className="hidden lg:flex max-w-52 items-center gap-2 rounded-full bg-[var(--color-brand-orange-subtle)] border border-[#FFD5C6] px-3 py-1.5">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-[var(--color-brand-orange)]" />
+            <span className="truncate text-xs font-bold text-[var(--color-brand-orange)]">
+              {nextSessionLabel}
+            </span>
+          </div>
+        )}
 
-        {/* Notifications */}
-        <button
-          type="button"
-          className="relative w-9 h-9 rounded-full border border-[var(--color-border-default)] hover:border-[var(--color-border-strong)] flex items-center justify-center text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] bg-[var(--color-bg-surface)] transition-colors shadow-xs"
+        <Link
+          href="/notifications"
+          className="flex h-9 w-9 items-center justify-center rounded-full border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] text-[var(--color-text-secondary)] shadow-xs transition-colors hover:border-[var(--color-border-strong)] hover:text-[var(--color-text-primary)]"
           title="Notifications"
         >
           <Bell className="w-4 h-4" />
-          <span className="absolute top-1 right-1 w-2 h-2 bg-[var(--color-brand-orange)] rounded-full" />
-        </button>
+        </Link>
 
-        {/* Portal Scope Indicator */}
         <Badge variant="blue" size="md" className="hidden sm:inline-flex">
           {roleTitle}
         </Badge>

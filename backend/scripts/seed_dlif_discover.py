@@ -4,8 +4,9 @@ Seed script for DLIF DISCOVER curriculum and active cohort.
 Idempotent: safe to run multiple times without duplicating data.
 """
 
-from datetime import date, datetime, timedelta, timezone
+import os
 import sys
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add backend directory to sys.path
@@ -15,12 +16,11 @@ if str(backend_dir) not in sys.path:
 
 from sqlalchemy import select
 from app.db.session import SessionLocal
-from app.models.cohort import Cohort, CohortStatus
+from app.models.cohort import Cohort
 from app.models.phase import Phase
 from app.models.program import Program
 from app.models.resource import Resource, ResourceType
 from app.models.session import Session, SessionStatus, SessionType
-from app.models.team import Team, TeamMembership, TeamMemberRole
 from app.models.week import Week
 
 
@@ -44,22 +44,31 @@ def seed_dlif():
         else:
             print(f"  * Existing Program: {program.name}")
 
-        # 2. Cohort
-        cohort = db.scalars(select(Cohort).where(Cohort.code == "2026-A")).first()
-        if not cohort:
-            cohort = Cohort(
-                program_id=program.id,
-                name="DLIF Cohort 2026-A",
-                code="2026-A",
-                start_date=date(2026, 10, 9),
-                end_date=date(2026, 11, 6),
-                status=CohortStatus.ACTIVE,
+        # 2. Target existing Cohort
+        target_cohort_code = os.getenv(
+            "DLIF_SEED_COHORT_CODE",
+            "BATCH01",
+        )
+
+        cohort = db.scalars(
+            select(Cohort).where(
+                Cohort.program_id == program.id,
+                Cohort.code == target_cohort_code,
             )
-            db.add(cohort)
-            db.flush()
-            print(f"  + Created Cohort: {cohort.name} ({cohort.code})")
-        else:
-            print(f"  * Existing Cohort: {cohort.name}")
+        ).first()
+
+        if not cohort:
+            raise RuntimeError(
+                "Target DLIF Cohort does not exist: "
+                f"{target_cohort_code}. "
+                "Create the Cohort in Admin first or set "
+                "DLIF_SEED_COHORT_CODE."
+            )
+
+        print(
+            f"  * Target Cohort: "
+            f"{cohort.name} ({cohort.code})"
+        )
 
         # 3. Phase: DISCOVER (THINK)
         phase = db.scalars(
@@ -331,15 +340,6 @@ def seed_dlif():
                 else None
             )
             if not session:
-                is_unlocked=(
-                    s_spec["session_number"] <= 2
-                ),
-
-                unlock_at=(
-                    now
-                    if s_spec["session_number"] <= 2
-                    else None
-                ),
                 session = Session(
                     cohort_id=cohort.id,
                     phase_id=phase.id,
@@ -380,13 +380,9 @@ def seed_dlif():
                 session.description = s_spec["description"]
                 session.session_type = s_spec["session_type"]
 
-                session.start_at = s_spec["start_at"]
-                session.end_at = s_spec["end_at"]
-
-                session.status = s_spec["status"]
-
-                session.meeting_url = s_spec["meeting_url"]
-                session.recording_url = s_spec["recording_url"]
+                # Preserve operational Session data entered by Admin:
+                # dates, status, Meet links, recordings, transcripts
+                # and lock state must not be overwritten by reseeding.
 
                 session.sequence = s_spec["sequence"]
 
@@ -395,7 +391,6 @@ def seed_dlif():
                     f"{session.session_number}: "
                     f"{session.title}"
                 )
-                print(f"  * Synced Session {session.session_number}: {session.title}")
 
         # 6. Seed DISCOVER Phase Resources
         resources_spec = [
@@ -452,4 +447,3 @@ def seed_dlif():
 
 if __name__ == "__main__":
     seed_dlif()
-

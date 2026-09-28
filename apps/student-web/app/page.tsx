@@ -11,10 +11,8 @@ import { Button } from "@/components/ui/button";
 import { getFellowContext } from "@/lib/api/fellow";
 import { getDiscoverOverview, getDiscoverWeeks } from "@/lib/api/discover";
 import { DiscoverOverview, DiscoverWeek, FellowContext } from "@/lib/api/types";
-import { useAuth } from "@/lib/auth-context";
 
 export default function DiscoverHomePage() {
-  const { user } = useAuth();
   const [context, setContext] = React.useState<FellowContext | null>(null);
   const [overview, setOverview] = React.useState<DiscoverOverview | null>(null);
   const [weeks, setWeeks] = React.useState<DiscoverWeek[] | null>(null);
@@ -43,8 +41,12 @@ export default function DiscoverHomePage() {
       setContext(ctxData);
       setOverview(ovData);
       setWeeks(weeksData);
-    } catch (err: any) {
-      setError(err?.message || "Failed to load fellowship data. Please try again.");
+    } catch (err: unknown) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load fellowship data. Please try again."
+      );
     } finally {
       setLoading(false);
     }
@@ -54,17 +56,21 @@ export default function DiscoverHomePage() {
     loadData();
   }, [loadData]);
 
-  const cohortName = context?.cohort?.code
-    ? `Cohort ${context.cohort.code}`
-    : "Cohort 2026-A";
-  const phaseName = context?.current_phase
-    ? `${context.current_phase.name} (${context.current_phase.development_role})`
-    : "DISCOVER (THINK)";
+  if (loading) {
+    return (
+      <PortalShell breadcrumbItems={["Overview"]} context={context}>
+        <div className="rounded-2xl border border-[var(--color-border-default)] p-12 text-center text-sm text-[var(--color-text-muted)]">
+          Loading fellowship overview...
+        </div>
+      </PortalShell>
+    );
+  }
 
   return (
     <PortalShell
-      breadcrumbs={[cohortName, phaseName, "Overview"]}
+      breadcrumbItems={["Overview"]}
       nextSession={overview?.next_session}
+      context={context}
     >
       {error && (
         <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-4 text-sm text-red-800">

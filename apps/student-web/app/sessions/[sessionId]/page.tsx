@@ -37,6 +37,12 @@ type Tab =
     | "submission"
     | "feedback";
 
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error && error.message
+        ? error.message
+        : fallback;
+}
+
 export default function SessionWorkspacePage() {
     const params = useParams();
 
@@ -107,11 +113,8 @@ export default function SessionWorkspacePage() {
                 );
 
                 setSession(data);
-            } catch (err: any) {
-                setError(
-                    err?.message ||
-                    "Unable to load this Session."
-                );
+            } catch (err: unknown) {
+                setError(getErrorMessage(err, "Unable to load this Session."));
             } finally {
                 setLoading(false);
             }
@@ -145,10 +148,9 @@ export default function SessionWorkspacePage() {
 
                 setResources(data);
                 setResourcesLoaded(true);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 setResourcesError(
-                    err?.message ||
-                    "Unable to load Session resources."
+                    getErrorMessage(err, "Unable to load Session resources.")
                 );
             } finally {
                 setResourcesLoading(false);
@@ -190,10 +192,9 @@ export default function SessionWorkspacePage() {
                 }
 
                 setSubmissionLoaded(true);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 setSubmissionError(
-                    err?.message ||
-                    "Unable to load Team submission."
+                    getErrorMessage(err, "Unable to load Team submission.")
                 );
             } finally {
                 setSubmissionLoading(false);
@@ -229,10 +230,9 @@ export default function SessionWorkspacePage() {
 
                 setFeedback(data);
                 setFeedbackLoaded(true);
-            } catch (err: any) {
+            } catch (err: unknown) {
                 setFeedbackError(
-                    err?.message ||
-                    "Unable to load Team feedback."
+                    getErrorMessage(err, "Unable to load Team feedback.")
                 );
             } finally {
                 setFeedbackLoading(false);
@@ -248,8 +248,8 @@ export default function SessionWorkspacePage() {
 
     if (loading) {
         return (
-            <PortalShell>
-                <div className="py-20 text-center text-sm text-[var(--color-text-muted)]">
+            <PortalShell breadcrumbItems={["Session"]}>
+                <div className="rounded-2xl border border-[var(--color-border-default)] py-16 text-center text-sm text-[var(--color-text-muted)]">
                     Loading Session...
                 </div>
             </PortalShell>
@@ -260,7 +260,7 @@ export default function SessionWorkspacePage() {
 
     if (error || !session) {
         return (
-            <PortalShell>
+            <PortalShell breadcrumbItems={["Session"]}>
                 <div className="max-w-2xl mx-auto py-16">
                     <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
                         <h1 className="font-bold text-red-800">
@@ -315,10 +315,9 @@ export default function SessionWorkspacePage() {
             setSubmissionUrl(
                 data.submission?.drive_url ?? ""
             );
-        } catch (err: any) {
+        } catch (err: unknown) {
             setSubmissionError(
-                err?.message ||
-                "Unable to save Team submission."
+                getErrorMessage(err, "Unable to save Team submission.")
             );
         } finally {
             setSubmissionSaving(false);
@@ -359,8 +358,7 @@ export default function SessionWorkspacePage() {
 
     return (
         <PortalShell
-            breadcrumbs={[
-                "DISCOVER",
+            breadcrumbItems={[
                 session.week_number
                     ? `Week ${session.week_number}`
                     : "Induction",
@@ -376,18 +374,18 @@ export default function SessionWorkspacePage() {
                     Back to Sessions
                 </Link>
 
-                <div className="rounded-3xl border border-[var(--color-border-default)] bg-white overflow-hidden">
-                    <div className="p-6 md:p-8 border-b border-[var(--color-border-default)]">
+                <div className="overflow-hidden rounded-2xl border border-[var(--color-border-default)] bg-white">
+                    <div className="border-b border-[var(--color-border-default)] p-5 sm:p-6 lg:p-8">
                         <div className="text-xs font-extrabold uppercase tracking-wider text-[var(--color-brand-orange)]">
                             Session {session.session_number}
                         </div>
 
-                        <h1 className="text-2xl md:text-3xl font-extrabold mt-1">
+                        <h1 className="mt-1 break-words text-2xl font-extrabold md:text-3xl">
                             {session.title}
                         </h1>
 
                         {session.description && (
-                            <p className="text-sm text-[var(--color-text-body)] mt-3 max-w-3xl">
+                            <p className="mt-3 max-w-3xl break-words text-sm text-[var(--color-text-body)]">
                                 {session.description}
                             </p>
                         )}
@@ -405,8 +403,8 @@ export default function SessionWorkspacePage() {
                         </div>
                     </div>
 
-                    <div className="overflow-x-auto border-b border-[var(--color-border-default)]">
-                        <div className="flex min-w-max px-4">
+                    <div className="overflow-x-auto border-b border-[var(--color-border-default)] [scrollbar-width:thin]">
+                        <div className="flex min-w-max px-2 sm:px-4">
                             {tabs.map((tab) => {
                                 const Icon = tab.icon;
 
@@ -420,7 +418,7 @@ export default function SessionWorkspacePage() {
                                         onClick={() =>
                                             setActiveTab(tab.key)
                                         }
-                                        className={`flex items-center gap-2 px-4 py-4 text-sm font-semibold border-b-2 ${active
+                                        className={`flex min-h-12 items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold whitespace-nowrap sm:px-4 ${active
                                             ? "border-[var(--color-brand-orange)] text-[var(--color-text-primary)]"
                                             : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"
                                             }`}
@@ -433,7 +431,7 @@ export default function SessionWorkspacePage() {
                         </div>
                     </div>
 
-                    <div className="p-6 md:p-8">
+                    <div className="p-5 sm:p-6 lg:p-8">
                         {activeTab === "overview" && (
                             <div className="space-y-6">
                                 <div>
@@ -452,13 +450,13 @@ export default function SessionWorkspacePage() {
                                         href={session.meeting_url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-[var(--color-brand-orange)] text-white text-sm font-bold"
+                                        className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-orange)] px-5 py-3 text-sm font-bold text-white sm:w-auto"
                                     >
                                         <Video className="w-4 h-4" />
                                         Join Google Meet
                                     </a>
                                 ) : (
-                                    <div className="rounded-xl border border-[var(--color-border-default)] p-4 text-sm text-[var(--color-text-muted)]">
+                                    <div className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] p-5 text-sm text-[var(--color-text-muted)]">
                                         Meeting link has not been
                                         published yet.
                                     </div>
@@ -529,7 +527,7 @@ export default function SessionWorkspacePage() {
                                                             href={resource.url}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center justify-center px-4 py-2 rounded-xl bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] text-xs font-bold hover:border-[var(--color-brand-blue)]"
+                                                            className="inline-flex min-h-10 w-full items-center justify-center rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-subtle)] px-4 py-2 text-xs font-bold hover:border-[var(--color-brand-blue)] sm:w-auto"
                                                         >
                                                             {resource.is_downloadable
                                                                 ? "Download"
@@ -550,36 +548,48 @@ export default function SessionWorkspacePage() {
                                     </h2>
                                 </div>
 
-                                {session.recording_url ? (
-                                    <a
-                                        href={session.recording_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="inline-flex items-center gap-2 font-semibold text-sm text-[var(--color-brand-blue)]"
-                                    >
-                                        <PlayCircle className="w-4 h-4" />
-                                        Watch Recording
-                                    </a>
-                                ) : (
-                                    <p className="text-sm text-[var(--color-text-muted)]">
-                                        Recording is not available yet.
-                                    </p>
-                                )}
+                                <div className="grid gap-3 sm:grid-cols-2">
+                                    <div className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] p-5">
+                                        <div className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                                            Recording
+                                        </div>
+                                        {session.recording_url ? (
+                                            <a
+                                                href={session.recording_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex items-center gap-2 break-all text-sm font-semibold text-[var(--color-brand-blue)]"
+                                            >
+                                                <PlayCircle className="h-4 w-4 shrink-0" />
+                                                Watch Recording
+                                            </a>
+                                        ) : (
+                                            <p className="text-sm text-[var(--color-text-muted)]">
+                                                Recording is not available yet.
+                                            </p>
+                                        )}
+                                    </div>
 
-                                {session.transcript_url ? (
-                                    <a
-                                        href={session.transcript_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="block font-semibold text-sm text-[var(--color-brand-blue)]"
-                                    >
-                                        Open Transcript
-                                    </a>
-                                ) : (
-                                    <p className="text-sm text-[var(--color-text-muted)]">
-                                        Transcript is not available yet.
-                                    </p>
-                                )}
+                                    <div className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] p-5">
+                                        <div className="mb-3 text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
+                                            Transcript
+                                        </div>
+                                        {session.transcript_url ? (
+                                            <a
+                                                href={session.transcript_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-sm font-semibold text-[var(--color-brand-blue)]"
+                                            >
+                                                Open Transcript
+                                            </a>
+                                        ) : (
+                                            <p className="text-sm text-[var(--color-text-muted)]">
+                                                Transcript is not available yet.
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -670,7 +680,7 @@ export default function SessionWorkspacePage() {
                                                                 )
                                                             }
                                                             placeholder="https://drive.google.com/..."
-                                                            className="w-full px-4 py-3 rounded-xl border border-[var(--color-border-default)] text-sm"
+                                                            className="min-h-11 w-full rounded-xl border border-[var(--color-border-default)] px-4 py-3 text-sm outline-none focus:border-[var(--color-brand-blue)]"
                                                         />
                                                     </div>
 
@@ -752,7 +762,7 @@ export default function SessionWorkspacePage() {
                                     feedback && (
                                         <div className="rounded-2xl border border-[var(--color-border-default)] overflow-hidden">
 
-                                            <div className="flex items-center justify-between gap-4 p-5 border-b border-[var(--color-border-default)]">
+                                            <div className="flex flex-col gap-4 border-b border-[var(--color-border-default)] p-5 sm:flex-row sm:items-center sm:justify-between">
 
                                                 <div>
                                                     <div className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
@@ -804,7 +814,7 @@ export default function SessionWorkspacePage() {
                                                             }
                                                             target="_blank"
                                                             rel="noopener noreferrer"
-                                                            className="inline-flex items-center px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold"
+                                                            className="inline-flex min-h-10 w-full items-center justify-center rounded-xl bg-[var(--color-brand-blue)] px-4 py-2 text-xs font-bold text-white sm:w-auto"
                                                         >
                                                             Open Feedback / Reference Link
                                                         </a>

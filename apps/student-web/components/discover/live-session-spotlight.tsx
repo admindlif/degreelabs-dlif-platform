@@ -1,176 +1,127 @@
-import * as React from "react";
-import { Video, CalendarPlus, Clock, User, FileText, ExternalLink } from "lucide-react";
-import { Card, CardTitle, CardDescription } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { Clock, Video } from "lucide-react";
+
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardDescription, CardTitle } from "@/components/ui/card";
 import { SessionSummary } from "@/lib/api/types";
 
 interface LiveSessionSpotlightProps {
   session?: SessionSummary | null;
 }
 
-export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
-  const isLocked = session ? !session.is_unlocked : false;
-  // Format Date and Time
-  const formatSessionTime = (
-    startStr?: string | null,
-    endStr?: string | null
-  ) => {
-    if (!startStr) return "Schedule to be announced";
-    try {
-      const start = new Date(startStr);
-      const end = endStr ? new Date(endStr) : null;
+function formatSessionTime(
+  startValue?: string | null,
+  endValue?: string | null
+) {
+  if (!startValue) return "Schedule to be announced";
 
-      const datePart = start.toLocaleDateString("en-US", {
-        weekday: "short",
-        month: "short",
-        day: "numeric",
-      });
+  const start = new Date(startValue);
+  const end = endValue ? new Date(endValue) : null;
 
-      const startTimePart = start.toLocaleTimeString("en-US", {
+  if (Number.isNaN(start.getTime()) || (end && Number.isNaN(end.getTime()))) {
+    return "Schedule to be announced";
+  }
+
+  const date = start.toLocaleDateString(undefined, {
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  });
+  const startTime = start.toLocaleTimeString(undefined, {
+    hour: "numeric",
+    minute: "2-digit",
+  });
+  const endTime = end
+    ? end.toLocaleTimeString(undefined, {
         hour: "numeric",
         minute: "2-digit",
-        hour12: true,
-      });
+      })
+    : null;
 
-      const endTimePart = end
-        ? end.toLocaleTimeString("en-US", {
-          hour: "numeric",
-          minute: "2-digit",
-          hour12: true,
-        })
-        : "";
+  return `${date}, ${startTime}${endTime ? ` – ${endTime}` : ""}`;
+}
 
-      return `${datePart}, ${startTimePart}${endTimePart ? ` – ${endTimePart}` : ""} IST`;
-    } catch {
-      return "Scheduled • Check Calendar";
-    }
-  };
+export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
+  if (!session) {
+    return (
+      <Card variant="elevated" className="h-full">
+        <CardTitle className="text-2xl font-extrabold">No upcoming Session</CardTitle>
+        <CardDescription className="mt-2">
+          The next Session will appear here after it is scheduled for your Cohort.
+        </CardDescription>
+      </Card>
+    );
+  }
 
-  const sessionBadgeLabel = session
-    ? session.session_type === "induction"
-      ? "Session 0: Induction"
-      : session.session_type === "output_review"
-        ? `Session ${session.session_number}: Output + Review (Gate)`
-        : `Session ${session.session_number}: Learn + Work`
-    : "Session 2: Learn + Work";
-
-  const isLive = session?.status === "live";
+  const isLocked = !session.is_unlocked;
+  const isLive = session.status === "live";
+  const sessionBadgeLabel = session.session_type === "induction"
+    ? "Session 0: Induction"
+    : session.session_type === "output_review"
+      ? `Session ${session.session_number}: Output + Review (Gate)`
+      : `Session ${session.session_number}: Learn + Work`;
 
   return (
     <Card variant="elevated" className="h-full flex flex-col justify-between">
-      <div>
-        {/* Top Badges */}
-        <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <div className="min-w-0">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-[var(--color-brand-orange)] animate-pulse" />
-            <span className="text-xs font-bold text-[var(--color-brand-orange)] uppercase tracking-wider">
+            <span className="h-2.5 w-2.5 rounded-full bg-[var(--color-brand-orange)]" />
+            <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-orange)]">
               {isLive ? "Live Now" : "Next Live Session"}
             </span>
           </div>
-          <Badge variant="blue" size="sm">
+          <Badge variant="blue" size="sm" className="max-w-full truncate">
             {sessionBadgeLabel}
           </Badge>
         </div>
 
-        {/* Title */}
-        <CardTitle className="text-2xl md:text-3xl font-extrabold mb-2">
-          {isLocked
-            ? `Session ${session?.session_number}`
-            : session?.title || "Problem Framing & Diagnosis"}
+        <CardTitle className="mb-2 break-words text-2xl font-extrabold md:text-3xl">
+          {isLocked ? `Session ${session.session_number}` : session.title}
         </CardTitle>
 
-        <CardDescription className="text-base text-[var(--color-text-body)] mb-6">
+        <CardDescription className="mb-6 text-base text-[var(--color-text-body)]">
           {isLocked
-            ? "This session has not been unlocked yet."
-            : session?.description ||
-            "Session details will be available here."}
+            ? "This Session has not been unlocked yet."
+            : session.description || "Session details will be available here."}
         </CardDescription>
 
-        {/* Schedule & Mentor Information Strip */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] mb-6">
+        <div className="mb-6 rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white border border-[var(--color-border-default)] flex items-center justify-center text-[var(--color-brand-orange)] shadow-xs">
-              <Clock className="w-5 h-5" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[var(--color-border-default)] bg-white text-[var(--color-brand-orange)] shadow-xs">
+              <Clock className="h-5 w-5" />
             </div>
-            <div>
-              <p className="text-xs text-[var(--color-text-muted)] font-medium">Time & Date</p>
-              <p className="text-sm font-bold text-[var(--color-text-primary)]">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-[var(--color-text-muted)]">Time & Date</p>
+              <p className="break-words text-sm font-bold text-[var(--color-text-primary)]">
                 {isLocked
                   ? "Locked"
-                  : formatSessionTime(
-                    session?.start_at,
-                    session?.end_at
-                  )}
+                  : formatSessionTime(session.start_at, session.end_at)}
               </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-white border border-[var(--color-border-default)] flex items-center justify-center text-[var(--color-brand-blue)] shadow-xs">
-              <User className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs text-[var(--color-text-muted)] font-medium">Company Challenge Owner</p>
-              <p className="text-sm font-bold text-[var(--color-text-primary)]">
-                Dr. Marcus Vance (SK Innovation)
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Session Pre-reads / Materials */}
-        <div className="space-y-2">
-          <p className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-            Required Working Evidence
-          </p>
-          <div className="flex flex-wrap gap-2">
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-secondary)] font-medium hover:border-[var(--color-border-strong)] cursor-pointer transition-colors">
-              <FileText className="w-3.5 h-3.5 text-[var(--color-brand-orange)]" />
-              <span>SK Innovation Company Challenge Brief</span>
-            </div>
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[var(--color-bg-subtle)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-secondary)] font-medium hover:border-[var(--color-border-strong)] cursor-pointer transition-colors">
-              <ExternalLink className="w-3.5 h-3.5 text-[var(--color-brand-blue)]" />
-              <span>Miro Working Board Template</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Footer */}
-      <div className="pt-8 border-t border-[var(--color-border-default)] flex flex-wrap items-center gap-3">
-        {session?.meeting_url ? (
+      <div className="flex flex-wrap items-center gap-3 border-t border-[var(--color-border-default)] pt-6">
+        {session.meeting_url && !isLocked ? (
           <a
             href={session.meeting_url}
             target="_blank"
             rel="noopener noreferrer"
             className="w-full sm:w-auto"
           >
-            <Button
-              variant="primary"
-              size="lg"
-              disabled
-              className="w-full sm:w-auto"
-            >
-              <Video className="w-4 h-4" />
-              <span>Meeting Link Coming Soon</span>
+            <Button variant="primary" size="lg" className="w-full sm:w-auto">
+              <Video className="h-4 w-4" />
+              <span>Join Google Meet</span>
             </Button>
           </a>
         ) : (
-          <Button
-            variant="primary"
-            size="lg"
-            disabled
-            className="w-full sm:w-auto"
-          >
-            <Video className="w-4 h-4" />
-            <span>Meeting Link Coming Soon</span>
+          <Button variant="primary" size="lg" disabled className="w-full sm:w-auto">
+            <Video className="h-4 w-4" />
+            <span>{isLocked ? "Session Locked" : "Meeting Link Coming Soon"}</span>
           </Button>
         )}
-        <Button variant="secondary" size="lg" className="w-full sm:w-auto">
-          <CalendarPlus className="w-4 h-4" />
-          <span>Add to Google Calendar</span>
-        </Button>
       </div>
     </Card>
   );

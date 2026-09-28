@@ -5,11 +5,7 @@ import { PortalShell } from "@/components/layout/portal-shell";
 export default function AssignmentsPage() {
     return (
         <PortalShell
-            breadcrumbs={[
-                "Cohort 2026-A",
-                "DISCOVER (THINK)",
-                "Weekly Outputs",
-            ]}
+            breadcrumbItems={["Weekly Outputs"]}
         >
             <div className="space-y-6">
                 <div>

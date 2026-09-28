@@ -12,19 +12,30 @@ import Link from "next/link";
 
 import { PortalShell } from "@/components/layout/portal-shell";
 import { getDiscoverWeeks } from "@/lib/api/discover";
-import { DiscoverWeek, SessionSummary } from "@/lib/api/types";
 
+import {
+    DiscoverWeek,
+    SessionSummary,
+} from "@/lib/api/types";
 
 export default function SessionsPage() {
-    const [weeks, setWeeks] = React.useState<DiscoverWeek[]>([]);
-    const [loading, setLoading] = React.useState(true);
-    const [error, setError] = React.useState<string | null>(null);
+    const [weeks, setWeeks] =
+        React.useState<DiscoverWeek[]>([]);
+
+    const [loading, setLoading] =
+        React.useState(true);
+
+    const [error, setError] =
+        React.useState<string | null>(null);
 
     React.useEffect(() => {
         getDiscoverWeeks()
             .then(setWeeks)
             .catch((err) => {
-                setError(err?.message || "Unable to load sessions.");
+                setError(
+                    err?.message ||
+                    "Unable to load sessions."
+                );
             })
             .finally(() => setLoading(false));
     }, []);
@@ -35,11 +46,7 @@ export default function SessionsPage() {
 
     return (
         <PortalShell
-            breadcrumbs={[
-                "Cohort 2026-A",
-                "DISCOVER (THINK)",
-                "My Sessions",
-            ]}
+            breadcrumbItems={["My Sessions"]}
         >
             <div className="space-y-6">
                 <div>
@@ -77,14 +84,14 @@ export default function SessionsPage() {
                         return (
                             <div
                                 key={session.id}
-                                className={`p-5 rounded-2xl border ${locked
+                                className={`overflow-hidden rounded-2xl border p-5 ${locked
                                     ? "bg-[var(--color-bg-subtle)] border-[var(--color-border-default)]"
                                     : "bg-white border-[var(--color-border-default)]"
                                     }`}
                             >
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                    <div className="min-w-0">
-                                        <div className="flex items-center gap-2">
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex flex-wrap items-center gap-2">
                                             <div className="text-xs font-bold uppercase tracking-wider text-[var(--color-brand-orange)]">
                                                 Session {session.session_number}
                                             </div>
@@ -98,7 +105,7 @@ export default function SessionsPage() {
                                         </div>
 
                                         <h2
-                                            className={`text-lg font-bold mt-1 ${locked
+                                            className={`mt-1 break-words text-lg font-bold ${locked
                                                 ? "text-[var(--color-text-muted)]"
                                                 : ""
                                                 }`}
@@ -113,13 +120,13 @@ export default function SessionsPage() {
                                         ) : (
                                             <>
                                                 {session.description && (
-                                                    <p className="text-sm text-[var(--color-text-muted)] mt-1">
+                                                    <p className="mt-1 line-clamp-3 break-words text-sm text-[var(--color-text-muted)]">
                                                         {session.description}
                                                     </p>
                                                 )}
 
-                                                <div className="flex items-center gap-2 mt-3 text-xs text-[var(--color-text-muted)]">
-                                                    <Calendar className="w-4 h-4" />
+                                                <div className="flex items-start gap-2 mt-3 text-xs text-[var(--color-text-muted)]">
+                                                    <Calendar className="w-4 h-4 shrink-0" />
 
                                                     {session.start_at
                                                         ? new Date(
@@ -132,15 +139,15 @@ export default function SessionsPage() {
                                     </div>
 
                                     {locked ? (
-                                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border-default)] text-xs font-bold text-[var(--color-text-muted)]">
+                                        <div className="inline-flex min-h-10 shrink-0 items-center gap-2 rounded-xl border border-[var(--color-border-default)] px-4 py-2 text-xs font-bold text-[var(--color-text-muted)]">
                                             <LockKeyhole className="w-4 h-4" />
                                             Session Locked
                                         </div>
                                     ) : (
-                                        <div className="flex flex-wrap gap-2">
+                                        <div className="flex w-full flex-wrap gap-2 md:w-auto md:justify-end">
                                             <Link
                                                 href={`/sessions/${session.id}`}
-                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border-default)] text-xs font-bold"
+                                                className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--color-border-default)] px-4 py-2 text-xs font-bold sm:flex-none"
                                             >
                                                 View Session
                                             </Link>
@@ -150,7 +157,7 @@ export default function SessionsPage() {
                                                     href={session.meeting_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-orange)] text-white text-xs font-bold"
+                                                    className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-orange)] px-4 py-2 text-xs font-bold text-white sm:flex-none"
                                                 >
                                                     <Video className="w-4 h-4" />
                                                     Join Session
@@ -162,7 +169,7 @@ export default function SessionsPage() {
                                                     href={session.recording_url}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border-default)] text-xs font-bold"
+                                                    className="inline-flex min-h-10 flex-1 items-center justify-center gap-2 rounded-xl border border-[var(--color-border-default)] px-4 py-2 text-xs font-bold sm:flex-none"
                                                 >
                                                     <PlayCircle className="w-4 h-4" />
                                                     Recording

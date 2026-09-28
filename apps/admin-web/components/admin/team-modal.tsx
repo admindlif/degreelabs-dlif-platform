@@ -126,11 +126,11 @@ export function TeamModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4">
 
       <form
         onSubmit={handleSubmit}
-        className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-2xl p-6 w-full max-w-xl shadow-2xl"
+        className="max-h-[calc(100dvh-1.5rem)] w-full max-w-xl overflow-y-auto rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-5 shadow-2xl sm:max-h-[90vh] sm:p-6"
       >
 
         <div className="flex items-start justify-between mb-6">
@@ -150,7 +150,8 @@ export function TeamModal({
           <button
             type="button"
             onClick={onClose}
-            className="text-xl"
+            aria-label="Close Team modal"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xl text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text-primary)]"
           >
             ×
           </button>
@@ -283,12 +284,12 @@ export function TeamModal({
         </div>
 
 
-        <div className="flex justify-end gap-3 mt-6 pt-4 border-t">
+        <div className="mt-6 flex flex-col-reverse gap-3 border-t border-[var(--color-border-default)] pt-4 sm:flex-row sm:justify-end">
 
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-2 rounded-xl border border-[var(--color-border-default)] text-xs font-bold"
+            className="min-h-10 rounded-xl border border-[var(--color-border-default)] px-4 py-2 text-xs font-bold"
           >
             Cancel
           </button>
@@ -300,7 +301,7 @@ export function TeamModal({
               !cohortId ||
               !name.trim()
             }
-            className="px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold disabled:opacity-50"
+            className="min-h-10 rounded-xl bg-[var(--color-brand-blue)] px-4 py-2 text-xs font-bold text-white disabled:opacity-50"
           >
             {saving
               ? "Saving..."

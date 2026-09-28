@@ -5,11 +5,7 @@ import { PortalShell } from "@/components/layout/portal-shell";
 export default function ProfilePage() {
     return (
         <PortalShell
-            breadcrumbs={[
-                "Cohort 2026-A",
-                "DISCOVER (THINK)",
-                "Profile",
-            ]}
+            breadcrumbItems={["Profile"]}
         >
             <div className="space-y-6">
                 <div>

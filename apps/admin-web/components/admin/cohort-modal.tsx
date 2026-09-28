@@ -155,7 +155,7 @@ export function CohortModal({
                             onChange={(event) =>
                                 setName(event.target.value)
                             }
-                            placeholder="DLIF Cohort 2026-A"
+                            placeholder="DLIF Cohort name"
                             className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-sm outline-none focus:border-[var(--color-brand-blue)]"
                         />
                     </div>
@@ -172,7 +172,7 @@ export function CohortModal({
                             onChange={(event) =>
                                 setCode(event.target.value)
                             }
-                            placeholder="2026-A"
+                            placeholder="Cohort code"
                             className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-sm outline-none focus:border-[var(--color-brand-blue)]"
                         />
                     </div>

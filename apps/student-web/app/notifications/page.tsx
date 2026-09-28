@@ -6,11 +6,7 @@ import { PortalShell } from "@/components/layout/portal-shell";
 export default function NotificationsPage() {
     return (
         <PortalShell
-            breadcrumbs={[
-                "Cohort 2026-A",
-                "DISCOVER (THINK)",
-                "Notifications",
-            ]}
+            breadcrumbItems={["Notifications"]}
         >
             <div className="space-y-6">
                 <div>

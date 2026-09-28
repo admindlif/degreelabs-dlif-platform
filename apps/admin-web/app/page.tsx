@@ -24,6 +24,7 @@ import {
   X,
   ArrowRight,
   Lock,
+  Menu,
   Unlock,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
@@ -102,6 +103,7 @@ interface NavGroup {
 export default function AdminHomePage() {
   const { user, logout } = useAuth();
   const [activeTab, setActiveTab] = React.useState<NavTab>("Dashboard");
+  const [mobileNavOpen, setMobileNavOpen] = React.useState(false);
 
   // Live data states
   const [stats, setStats] = React.useState<AdminStats | null>(null);
@@ -234,9 +236,7 @@ export default function AdminHomePage() {
         getAdminTeams().catch(() => []),
       ]);
 
-      if (statsData) {
-        setStats(statsData);
-      }
+      setStats(statsData);
 
       setFellows(fellowsData);
       setPrograms(programsData);
@@ -410,9 +410,7 @@ export default function AdminHomePage() {
   }, [weeklyOutputSessionId]);
 
   const activePhase =
-    phases.find((phase) => phase.is_active) ??
-    phases[0] ??
-    null;
+    phases.find((phase) => phase.is_active) ?? null;
 
   const activeCohorts =
     cohorts.filter(
@@ -420,14 +418,21 @@ export default function AdminHomePage() {
     );
 
   const primaryCohort =
-    activeCohorts[0] ??
-    cohorts[0] ??
-    null;
+    activeCohorts[0] ?? null;
 
   return (
     <div className="min-h-screen flex bg-[var(--color-bg-canvas)] text-[var(--color-text-primary)]">
+      {mobileNavOpen && (
+        <button
+          type="button"
+          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          aria-label="Close navigation"
+          onClick={() => setMobileNavOpen(false)}
+        />
+      )}
+
       {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
-      <aside className="w-64 h-screen sticky top-0 bg-[var(--color-brand-navy)] flex flex-col shrink-0 border-r border-white/10 select-none overflow-hidden">
+      <aside className={`fixed inset-y-0 left-0 z-40 flex h-dvh w-[min(256px,calc(100vw-3rem))] shrink-0 flex-col overflow-hidden border-r border-white/10 bg-[var(--color-brand-navy)] shadow-xl transition-transform duration-200 lg:sticky lg:top-0 lg:z-30 lg:h-screen lg:w-64 lg:translate-x-0 lg:shadow-none ${mobileNavOpen ? "translate-x-0" : "-translate-x-full"}`}>
         {/* Brand Header */}
         <div className="h-20 flex items-center px-5 border-b border-white/10">
           <div className="relative w-36 h-9 flex items-center">
@@ -473,7 +478,10 @@ export default function AdminHomePage() {
                     <button
                       key={item.name}
                       type="button"
-                      onClick={() => setActiveTab(item.name)}
+                      onClick={() => {
+                        setActiveTab(item.name);
+                        setMobileNavOpen(false);
+                      }}
                       className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group text-left ${isActive
                         ? "bg-[var(--color-brand-blue)] text-white font-bold shadow-md shadow-blue-500/20"
                         : "text-white/70 hover:bg-white/10 hover:text-white"
@@ -508,13 +516,13 @@ export default function AdminHomePage() {
         <div className="px-5 py-4 border-t border-white/10 bg-black/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse" />
+              <span className="w-2 h-2 rounded-full bg-[var(--color-brand-orange)]" />
               <span className="text-xs font-semibold text-white/80">
                 Admin Console
               </span>
             </div>
             <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-md border border-amber-400/20">
-              {user?.role?.toUpperCase() || "SUPER_ADMIN"}
+              {user?.role?.toUpperCase() || "ADMIN"}
             </span>
           </div>
 
@@ -528,7 +536,7 @@ export default function AdminHomePage() {
                   {user ? `${user.first_name} ${user.last_name}` : "DegreeLabs Admin"}
                 </span>
                 <span className="text-[10px] text-white/50 truncate">
-                  {user?.email || "admin.dlif@degreelabs.com"}
+                  {user?.email || "—"}
                 </span>
               </div>
             </div>
@@ -547,54 +555,62 @@ export default function AdminHomePage() {
       {/* ── MAIN CONTENT AREA ────────────────────────────────────────────── */}
       <div className="flex-1 flex flex-col min-w-0 overflow-y-auto">
         {/* Topbar */}
-        <header className="h-20 border-b border-[var(--color-border-default)] px-8 flex items-center justify-between bg-[var(--color-bg-surface)] sticky top-0 z-20 backdrop-blur-md">
-          <div className="flex items-center gap-4">
-            <div>
+        <header className="sticky top-0 z-20 flex min-h-20 items-center justify-between gap-3 border-b border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-4 py-3 backdrop-blur-md sm:px-6 lg:px-8">
+          <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+            <button
+              type="button"
+              onClick={() => setMobileNavOpen(true)}
+              className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-[var(--color-text-secondary)] lg:hidden"
+              aria-label="Open navigation"
+            >
+              <Menu className="h-4 w-4" />
+            </button>
+            <div className="min-w-0">
               <div className="flex items-center gap-2 text-xs font-medium text-[var(--color-text-muted)]">
                 <span>DegreeLabs DLIF</span>
                 <span>/</span>
                 <span className="text-[var(--color-text-primary)] font-bold">{activeTab}</span>
               </div>
-              <h1 className="text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
+              <h1 className="truncate text-xl font-extrabold tracking-tight text-[var(--color-text-primary)]">
                 {activeTab}
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={loadData}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-xs font-semibold text-[var(--color-text-body)] hover:border-[var(--color-border-strong)] transition-all"
+              className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] px-3 py-2 text-xs font-semibold text-[var(--color-text-body)] transition-all hover:border-[var(--color-border-strong)]"
               title="Refresh data"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-              <span>Refresh</span>
+              <span className="hidden sm:inline">Refresh</span>
             </button>
 
             <button
               type="button"
               onClick={() => setShowInviteModal(true)}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold hover:bg-blue-600 shadow-sm transition-all"
+              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-[var(--color-brand-blue)] px-3 py-2 text-xs font-bold text-white shadow-sm transition-all hover:bg-blue-600 sm:px-4"
             >
               <Plus className="w-4 h-4" />
-              <span>Invite Fellow</span>
+              <span className="hidden sm:inline">Invite Fellow</span>
             </button>
           </div>
         </header>
 
         {/* Content Body */}
-        <main className="p-8 max-w-[1400px] w-full mx-auto space-y-8">
+        <main className="mx-auto w-full max-w-[1400px] space-y-8 p-4 sm:p-6 xl:p-8">
           {/* TAB 1: DASHBOARD */}
           {activeTab === "Dashboard" && (
             <div className="space-y-8">
               {/* Hero Banner */}
-              <div className="relative overflow-hidden rounded-[24px] bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] p-8">
+              <div className="relative overflow-hidden rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] p-6 sm:p-8">
                 <div className="absolute -top-24 -right-24 w-96 h-96 bg-[var(--color-brand-orange-subtle)] rounded-full blur-3xl pointer-events-none opacity-60" />
                 <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
                   <div>
                     <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[var(--color-brand-blue-subtle)] border border-[var(--color-brand-blue)]/20 text-xs font-bold text-[var(--color-brand-blue)] mb-3">
-                      <span>DLIF 2026 Operations Console</span>
+                      <span>DLIF Operations Console</span>
                     </div>
                     <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
                       Welcome, {user?.first_name || "Administrator"}
@@ -607,14 +623,14 @@ export default function AdminHomePage() {
                     <button
                       type="button"
                       onClick={() => setActiveTab("Fellows")}
-                      className="px-4 py-2.5 rounded-xl bg-[var(--color-brand-navy)] text-white text-xs font-bold hover:opacity-90 transition-opacity"
+                      className="min-h-10 flex-1 rounded-xl bg-[var(--color-brand-navy)] px-4 py-2.5 text-xs font-bold text-white transition-opacity hover:opacity-90 sm:flex-none"
                     >
                       Manage Fellows ({stats?.total_fellows ?? fellows.length})
                     </button>
                     <button
                       type="button"
                       onClick={() => setActiveTab("Cohorts")}
-                      className="px-4 py-2.5 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] text-xs font-bold hover:border-[var(--color-border-strong)] transition-all"
+                      className="min-h-10 flex-1 rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-canvas)] px-4 py-2.5 text-xs font-bold transition-all hover:border-[var(--color-border-strong)] sm:flex-none"
                     >
                       View Cohorts ({cohorts.length})
                     </button>
@@ -694,7 +710,7 @@ export default function AdminHomePage() {
                 <div className="p-5 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
                   <div className="flex items-center justify-between mb-3">
                     <span className="text-xs font-bold uppercase tracking-wider text-[var(--color-text-muted)]">
-                      Live Sessions
+                      Total Sessions
                     </span>
                     <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center">
                       <Video className="w-4 h-4" />
@@ -745,13 +761,21 @@ export default function AdminHomePage() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border-default)]">
-                      {fellows.slice(0, 5).map((f) => (
+                      {fellows.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-center text-[var(--color-text-muted)]">
+                            No Fellows are available.
+                          </td>
+                        </tr>
+                      ) : fellows.slice(0, 5).map((f) => (
                         <tr key={f.id} className="hover:bg-[var(--color-bg-canvas)] transition-colors">
-                          <td className="py-3 px-4 font-bold flex items-center gap-2.5">
-                            <div className="w-7 h-7 rounded-full bg-[var(--color-brand-navy)] text-white text-[10px] font-bold flex items-center justify-center">
-                              {f.first_name[0]}{f.last_name[0]}
+                          <td className="py-3 px-4 font-bold">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-7 h-7 shrink-0 rounded-full bg-[var(--color-brand-navy)] text-white text-[10px] font-bold flex items-center justify-center">
+                                {f.first_name[0]}{f.last_name[0]}
+                              </div>
+                              <span>{f.first_name} {f.last_name}</span>
                             </div>
-                            <span>{f.first_name} {f.last_name}</span>
                           </td>
                           <td className="py-3 px-4 text-[var(--color-text-body)]">{f.email}</td>
                           <td className="py-3 px-4">
@@ -774,7 +798,7 @@ export default function AdminHomePage() {
                             </span>
                           </td>
                           <td className="py-3 px-4 text-[var(--color-text-muted)]">
-                            {f.created_at ? new Date(f.created_at).toLocaleDateString() : "Active"}
+                            {f.created_at ? new Date(f.created_at).toLocaleDateString() : "—"}
                           </td>
                         </tr>
                       ))}
@@ -859,15 +883,17 @@ export default function AdminHomePage() {
                     ) : (
                       filteredFellows.map((f) => (
                         <tr key={f.id} className="hover:bg-[var(--color-bg-canvas)] transition-colors">
-                          <td className="py-3 px-4 font-bold flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-[var(--color-brand-navy)] text-white text-xs font-bold flex items-center justify-center">
-                              {f.first_name[0]}{f.last_name[0]}
-                            </div>
-                            <div>
-                              <div>{f.first_name} {f.last_name}</div>
-                              <span className="text-[10px] text-[var(--color-text-muted)] font-normal">
-                                ID: {f.id.substring(0, 8)}...
-                              </span>
+                          <td className="py-3 px-4 font-bold">
+                            <div className="flex items-center gap-2.5">
+                              <div className="w-8 h-8 shrink-0 rounded-full bg-[var(--color-brand-navy)] text-white text-xs font-bold flex items-center justify-center">
+                                {f.first_name[0]}{f.last_name[0]}
+                              </div>
+                              <div>
+                                <div>{f.first_name} {f.last_name}</div>
+                                <span className="text-[10px] text-[var(--color-text-muted)] font-normal">
+                                  ID: {f.id.substring(0, 8)}...
+                                </span>
+                              </div>
                             </div>
                           </td>
                           <td className="py-3 px-4 text-[var(--color-text-body)]">{f.email}</td>

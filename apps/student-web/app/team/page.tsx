@@ -20,30 +20,31 @@ export default function TeamPage() {
 
     return (
         <PortalShell
-            breadcrumbs={[
-                "Cohort 2026-A",
-                "DISCOVER (THINK)",
-                "My Team",
-            ]}
+            breadcrumbItems={["My Team"]}
         >
             <div className="space-y-6">
-                <h1 className="text-2xl font-extrabold">
-                    My Team
-                </h1>
+                <div>
+                    <h1 className="text-2xl font-extrabold">My Team</h1>
+                    <p className="mt-1 text-sm text-[var(--color-text-muted)]">
+                        View your Team assignment, challenge, and members.
+                    </p>
+                </div>
 
                 {loading ? (
-                    <p>Loading team...</p>
+                    <div className="rounded-2xl border border-[var(--color-border-default)] p-8 text-center text-sm text-[var(--color-text-muted)]">
+                        Loading Team...
+                    </div>
                 ) : !team ? (
-                    <div className="p-8 rounded-2xl border border-[var(--color-border-default)]">
+                    <div className="rounded-2xl border border-[var(--color-border-default)] p-8 text-center text-sm text-[var(--color-text-muted)]">
                         Team assignment is pending.
                     </div>
                 ) : (
-                    <div className="p-6 rounded-2xl bg-white border border-[var(--color-border-default)]">
-                        <div className="flex items-center gap-3">
-                            <Users className="w-6 h-6 text-[var(--color-brand-blue)]" />
+                    <div className="overflow-hidden rounded-2xl border border-[var(--color-border-default)] bg-white p-5 sm:p-6">
+                        <div className="flex min-w-0 items-center gap-3">
+                            <Users className="h-6 w-6 shrink-0 text-[var(--color-brand-blue)]" />
 
-                            <div>
-                                <h2 className="text-xl font-bold">
+                            <div className="min-w-0">
+                                <h2 className="truncate text-xl font-bold">
                                     Team {team.name}
                                 </h2>
 
@@ -85,7 +86,7 @@ export default function TeamPage() {
                             {team.members.map((member) => (
                                 <div
                                     key={member.id}
-                                    className="flex items-center justify-between p-3 rounded-xl bg-[var(--color-bg-subtle)]"
+                                    className="flex flex-col gap-1 rounded-xl bg-[var(--color-bg-subtle)] p-3 sm:flex-row sm:items-center sm:justify-between"
                                 >
                                     <span>
                                         {member.first_name} {member.last_name}

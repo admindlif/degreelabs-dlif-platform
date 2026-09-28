@@ -191,9 +191,9 @@ export function TeamMembersModal({
     }
 
     return (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 backdrop-blur-sm sm:p-4">
 
-            <div className="bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] rounded-2xl p-6 w-full max-w-3xl shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div className="max-h-[calc(100dvh-1.5rem)] w-full max-w-3xl overflow-y-auto rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-5 shadow-2xl sm:max-h-[90vh] sm:p-6">
 
                 {/* HEADER */}
                 <div className="flex items-start justify-between mb-6">
@@ -210,7 +210,8 @@ export function TeamMembersModal({
                     <button
                         type="button"
                         onClick={onClose}
-                        className="text-xl"
+                        aria-label="Close Team members modal"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-xl text-[var(--color-text-muted)] hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text-primary)]"
                     >
                         ×
                     </button>
@@ -260,7 +261,7 @@ export function TeamMembersModal({
                                             return (
                                                 <div
                                                     key={member.id}
-                                                    className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border-default)] p-4"
+                                                    className="flex flex-col gap-4 rounded-xl border border-[var(--color-border-default)] p-4 sm:flex-row sm:items-center sm:justify-between"
                                                 >
 
                                                     <div>
@@ -274,7 +275,7 @@ export function TeamMembersModal({
                                                         </div>
                                                     </div>
 
-                                                    <div className="flex items-center gap-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
 
                                                         {isLead ? (
                                                             <span className="px-3 py-1.5 rounded-full bg-green-50 text-green-700 text-xs font-bold border border-green-200">
@@ -350,7 +351,7 @@ export function TeamMembersModal({
                                         (fellow) => (
                                             <div
                                                 key={fellow.fellow_id}
-                                                className="flex items-center justify-between gap-4 rounded-xl border border-[var(--color-border-default)] p-4"
+                                                className="flex flex-col gap-4 rounded-xl border border-[var(--color-border-default)] p-4 sm:flex-row sm:items-center sm:justify-between"
                                             >
 
                                                 <div>
@@ -394,11 +395,11 @@ export function TeamMembersModal({
                     </div>
                 )}
 
-                <div className="flex justify-end mt-6 pt-4 border-t">
+                <div className="mt-6 flex justify-end border-t border-[var(--color-border-default)] pt-4">
                     <button
                         type="button"
                         onClick={onClose}
-                        className="px-4 py-2 rounded-xl border text-xs font-bold"
+                        className="min-h-10 w-full rounded-xl border border-[var(--color-border-default)] px-4 py-2 text-xs font-bold sm:w-auto"
                     >
                         Done
                     </button>

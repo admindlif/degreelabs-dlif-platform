@@ -27,11 +27,7 @@ export default function ResourcesPage() {
 
     return (
         <PortalShell
-            breadcrumbs={[
-                "Cohort 2026-A",
-                "DISCOVER (THINK)",
-                "Resources",
-            ]}
+            breadcrumbItems={["Resources"]}
         >
             <div className="space-y-6">
                 <div>
