@@ -450,7 +450,7 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                           variant="secondary"
                           size="sm"
                           onClick={() => {
-                            if (session.recordingUrl) window.open(session.recordingUrl, "_blank");
+                            if (session.recordingUrl) window.open(session.recordingUrl, "_blank", "noopener,noreferrer");
                           }}
                         >
                           <PlayCircle className="w-3.5 h-3.5 text-[var(--color-brand-blue)]" />
@@ -463,7 +463,7 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                           variant="primary"
                           size="sm"
                           onClick={() => {
-                            if (session.meetingUrl) window.open(session.meetingUrl, "_blank");
+                            if (session.meetingUrl) window.open(session.meetingUrl, "_blank", "noopener,noreferrer");
                           }}
                         >
                           <span className="w-2 h-2 rounded-full bg-white animate-pulse" />

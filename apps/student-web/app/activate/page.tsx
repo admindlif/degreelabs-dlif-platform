@@ -19,6 +19,7 @@ import {
 import { useAuth } from "@/lib/auth-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const ONBOARDING_RESUME_KEY = "dlif_onboarding_resume";
 
 function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
   const steps = [
@@ -95,6 +96,50 @@ function StudentActivationContent() {
   // Status
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
+  const resumeAttempted = React.useRef(false);
+
+  const beginTwoFactorSetup = React.useCallback(async (onboardingToken: string) => {
+    setTempAccessToken(onboardingToken);
+
+    const setupRes = await fetch(
+      `${API_URL}/api/v1/auth/2fa/setup`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${onboardingToken}`,
+        },
+      }
+    );
+
+    const setupData = await setupRes.json().catch(() => ({}));
+    if (!setupRes.ok) {
+      throw new Error("Unable to start two-factor authentication setup.");
+    }
+
+    setTotpSecret(setupData.secret);
+    setOtpauthUri(setupData.totp_uri);
+    setStep(2);
+  }, []);
+
+  React.useEffect(() => {
+    if (searchParams.get("resume") !== "1" || resumeAttempted.current) return;
+    resumeAttempted.current = true;
+
+    const onboardingToken = sessionStorage.getItem(ONBOARDING_RESUME_KEY);
+    sessionStorage.removeItem(ONBOARDING_RESUME_KEY);
+    if (!onboardingToken) {
+      setError("Your onboarding session is unavailable. Sign in again to resume setup.");
+      return;
+    }
+
+    setLoading(true);
+    beginTwoFactorSetup(onboardingToken)
+      .catch(() => {
+        setError("Unable to resume two-factor authentication setup. Sign in and try again.");
+      })
+      .finally(() => setLoading(false));
+  }, [beginTwoFactorSetup, searchParams]);
 
   // Step 1: Submit invitation token + password
   const handleStep1Submit = async (e: React.FormEvent) => {
@@ -145,32 +190,7 @@ function StudentActivationContent() {
 
       const onboardingToken = data.onboarding_token;
 
-      setTempAccessToken(onboardingToken);
-
-      const setupRes = await fetch(
-        `${API_URL}/api/v1/auth/2fa/setup`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${onboardingToken}`,
-          },
-        }
-      );
-
-      const setupData = await setupRes.json().catch(() => ({}));
-
-      if (!setupRes.ok) {
-        setError(
-          setupData.detail ||
-          "Unable to start two-factor authentication setup."
-        );
-        return;
-      }
-
-      setTotpSecret(setupData.secret);
-      setOtpauthUri(setupData.totp_uri);
-      setStep(2);
+      await beginTwoFactorSetup(onboardingToken);
     } catch {
       setError(
         "Could not reach Fellow Portal API. Please verify server status."

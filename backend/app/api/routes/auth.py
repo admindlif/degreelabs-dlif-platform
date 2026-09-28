@@ -29,6 +29,8 @@ from app.schemas.auth import (
     ConfirmTwoFAResponse,
     LoginRequest,
     LoginResponse,
+    OnboardingResumeRequest,
+    OnboardingResumeResponse,
     TokenResponse,
     TwoFASetupResponse,
     UserResponse,
@@ -46,6 +48,7 @@ from app.services.auth import (
     complete_2fa_login,
     confirm_2fa,
     setup_2fa,
+    resume_onboarding,
     verify_login_credentials,
 )
 
@@ -103,6 +106,30 @@ def activate(
         user_id=user.id,
         email=user.email,
         onboarding_token=onboarding_token,
+    )
+
+
+@router.post(
+    "/onboarding/resume",
+    response_model=OnboardingResumeResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Resume incomplete 2FA onboarding",
+)
+def resume_incomplete_onboarding(
+    data: OnboardingResumeRequest,
+    db: Session = Depends(get_db),
+) -> OnboardingResumeResponse:
+    try:
+        user = resume_onboarding(db, str(data.email), data.password)
+    except InvalidCredentialsError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Unable to resume onboarding with the supplied credentials.",
+        ) from exc
+
+    return OnboardingResumeResponse(
+        message="Continue two-factor authentication setup.",
+        onboarding_token=create_onboarding_token(str(user.id)),
     )
 
 

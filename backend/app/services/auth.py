@@ -9,11 +9,7 @@ Covers:
 - Current user retrieval
 """
 
-from app.models import user_invitation
-from app.models import user_invitation
-from app.models import user_invitation
 import hashlib
-import logging
 import secrets
 from datetime import datetime, timezone
 from uuid import UUID
@@ -54,10 +50,7 @@ from app.schemas.auth import (
     TwoFASetupResponse,
     VerifyTOTPRequest,
 )
-from app.services.invitation import create_invitation_for_user, send_invitation_email
-
-
-logger = logging.getLogger(__name__)
+from app.services.invitation import create_invitation_for_user
 
 _RECOVERY_CODE_COUNT = 8
 _RECOVERY_CODE_LENGTH = 10  # characters per code
@@ -231,6 +224,35 @@ def activate_account(
 
     db.commit()
     db.refresh(user)
+
+    return user
+
+
+def resume_onboarding(
+    db: Session,
+    email: str,
+    password: str,
+) -> User:
+    """Authenticate an incomplete invite and allow only its 2FA setup to resume."""
+    user = get_user_by_email(db, email.strip().lower())
+
+    if (
+        user is None
+        or user.password_hash is None
+        or not verify_password(password, user.password_hash)
+        or not user.is_active
+        or user.role not in {UserRole.FELLOW, UserRole.STUDENT}
+        or user.account_status != AccountStatus.INVITED
+        or user.password_set_at is None
+        or user.email_verified_at is None
+        or user.two_factor_enabled
+    ):
+        # One response covers unknown email, wrong password, completed onboarding,
+        # suspended accounts, and invalid state so this endpoint is not an
+        # account-enumeration oracle.
+        raise InvalidCredentialsError(
+            "Unable to resume onboarding with the supplied credentials."
+        )
 
     return user
 
@@ -438,10 +460,9 @@ def complete_2fa_login(
 
     try:
         payload = decode_2fa_challenge_token(challenge_token)
-    except jwt.PyJWTError as exc:
+        user_id = UUID(payload["sub"])
+    except (jwt.PyJWTError, KeyError, TypeError, ValueError) as exc:
         raise InvalidCredentialsError("Invalid or expired challenge token.") from exc
-
-    user_id = UUID(payload["sub"])
     user = get_user_by_id(db, user_id)
 
     

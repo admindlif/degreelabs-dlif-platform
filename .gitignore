@@ -108,4 +108,17 @@ Thumbs.db
 backend/credentials/
 backend/credentials/google-meet-token.json
 backend/credentials/google-oauth-client.json
+credentials/
+**/credentials/
+google-service-account*.json
+google-oauth-client*.json
+google-meet-token*.json
+
+# Private keys and certificate bundles
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
 *.tsbuildinfo

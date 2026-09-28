@@ -10,7 +10,9 @@ from datetime import date, datetime
 from typing import Literal, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
+from app.schemas.url_validation import validate_external_url
 
 
 # ---------------------------------------------------------------------------
@@ -187,6 +189,11 @@ class SessionCreate(BaseModel):
         max_length=500,
     )   
 
+    @field_validator("meeting_url", "recording_url", "transcript_url", mode="before")
+    @classmethod
+    def validate_urls(cls, value: object) -> str | None:
+        return validate_external_url(value)
+
 
 class SessionUpdate(BaseModel):
     week_id: Optional[UUID] = None
@@ -206,6 +213,11 @@ class SessionUpdate(BaseModel):
         None,
         max_length=500,
     )
+
+    @field_validator("meeting_url", "recording_url", "transcript_url", mode="before")
+    @classmethod
+    def validate_urls(cls, value: object) -> str | None:
+        return validate_external_url(value)
 
 
 class SessionResponse(BaseModel):
@@ -345,6 +357,11 @@ class ResourceCreate(BaseModel):
         ge=0,
     )
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, value: object) -> str | None:
+        return validate_external_url(value, field_name="Resource URL")
+
 
 class ResourceUpdate(BaseModel):
     session_id: Optional[UUID] = None
@@ -373,6 +390,11 @@ class ResourceUpdate(BaseModel):
         None,
         ge=0,
     )
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, value: object) -> str | None:
+        return validate_external_url(value, field_name="Resource URL")
 
 
 class ResourceResponse(BaseModel):

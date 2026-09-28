@@ -2,7 +2,9 @@ from datetime import datetime
 from typing import Literal
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.url_validation import validate_external_url
 
 
 FeedbackStatus = Literal[
@@ -23,6 +25,11 @@ class SubmissionFeedbackUpsertRequest(BaseModel):
     )
 
     status: FeedbackStatus
+
+    @field_validator("feedback_url", mode="before")
+    @classmethod
+    def validate_feedback_url(cls, value: object) -> str | None:
+        return validate_external_url(value, field_name="Feedback URL")
 
 
 class SubmissionFeedbackDetail(BaseModel):

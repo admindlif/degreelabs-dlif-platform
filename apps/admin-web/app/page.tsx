@@ -264,20 +264,24 @@ export default function AdminHomePage() {
     setInviteLoading(true);
 
     try {
-      await inviteFellow({
+      const result = await inviteFellow({
         first_name: inviteFirstName.trim(),
         last_name: inviteLastName.trim(),
         email: inviteEmail.trim(),
       });
-      setInviteSuccess(`Invitation sent successfully to ${inviteEmail}!`);
       setInviteFirstName("");
       setInviteLastName("");
       setInviteEmail("");
       loadData();
-      setTimeout(() => {
-        setShowInviteModal(false);
-        setInviteSuccess(null);
-      }, 2000);
+      if (result.invitation_sent) {
+        setInviteSuccess(result.message);
+        setTimeout(() => {
+          setShowInviteModal(false);
+          setInviteSuccess(null);
+        }, 2000);
+      } else {
+        setInviteError(result.message);
+      }
     } catch (err: any) {
       setInviteError(err?.message || "Failed to invite Fellow. Please verify details.");
     } finally {

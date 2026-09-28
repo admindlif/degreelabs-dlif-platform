@@ -27,6 +27,11 @@ export interface AdminFellow {
   last_login_at: string | null;
 }
 
+export interface FellowInvitationResult extends AdminFellow {
+  invitation_sent: boolean;
+  message: string;
+}
+
 export interface FellowUpdate {
   first_name?: string;
   last_name?: string;
@@ -255,8 +260,12 @@ export async function getAdminFellow(id: string): Promise<AdminFellow> {
   return adminApiClient<AdminFellow>(`/api/v1/admin/fellows/${id}`);
 }
 
-export async function inviteFellow(data: { first_name: string; last_name: string; email: string }): Promise<any> {
-  return adminApiClient("/api/v1/admin/fellows", { method: "POST", body: JSON.stringify(data) });
+export async function inviteFellow(data: { first_name: string; last_name: string; email: string }): Promise<FellowInvitationResult> {
+  return adminApiClient<FellowInvitationResult>("/api/v1/admin/fellows", { method: "POST", body: JSON.stringify(data) });
+}
+
+export async function resendFellowInvitation(id: string): Promise<{ invitation_sent: boolean; message: string }> {
+  return adminApiClient(`/api/v1/admin/fellows/${id}/resend-invitation`, { method: "POST" });
 }
 
 export async function updateFellow(id: string, data: FellowUpdate): Promise<AdminFellow> {

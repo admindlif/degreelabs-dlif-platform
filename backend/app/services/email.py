@@ -30,22 +30,10 @@ class LoggingEmailBackend:
         html_body: str,
         text_body: str,
     ) -> None:
-        separator = "=" * 72
-
         logger.info(
-            "\n%s\n"
-            "[DEV EMAIL]\n"
-            "From: %s\n"
-            "To: %s\n"
-            "Subject: %s\n\n"
-            "%s\n"
-            "%s",
-            separator,
-            settings.email_from_address,
-            to_address,
+            "Email suppressed by logging backend; recipient and body omitted "
+            "(subject=%r)",
             subject,
-            text_body,
-            separator,
         )
 
 
@@ -108,14 +96,12 @@ class SMTPEmailBackend:
                 smtp.send_message(message)
 
             logger.info(
-                "Invitation email successfully sent to %s",
-                to_address,
+                "Email successfully accepted by the SMTP server; recipient omitted",
             )
 
         except Exception:
             logger.exception(
-                "Failed to send SMTP email to %s",
-                to_address,
+                "SMTP email delivery failed; recipient omitted",
             )
             raise
 

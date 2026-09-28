@@ -4,6 +4,8 @@ Admin routes — full CRUD for all platform entities.
 Only ADMIN and SUPER_ADMIN roles may access these endpoints.
 """
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
@@ -52,9 +54,10 @@ from app.schemas.auth import (
     CreateFellowRequest,
     CreateFellowResponse,
     CreateStudentResponse,
+    InvitationDeliveryResponse,
 )
 from app.services.auth import DuplicateEmailError, admin_create_fellow
-from app.services.invitation import send_invitation_email
+from app.services.invitation import replace_invitation_for_user, send_invitation_email
 from app.services.google_calendar import (
     create_calendar_event_with_meet,
     update_calendar_event,
@@ -74,6 +77,7 @@ from app.schemas.feedback import (
     SubmissionFeedbackUpsertRequest,
 )
 router = APIRouter(prefix="/admin", tags=["Admin"])
+logger = logging.getLogger(__name__)
 
 
 def _not_found(entity: str, id: object) -> HTTPException:
@@ -113,12 +117,73 @@ def create_fellow(data: CreateFellowRequest, db: Session = Depends(get_db), _adm
         user, raw_token = admin_create_fellow(db, data)
     except DuplicateEmailError as exc:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(exc)) from exc
+    invitation_sent = True
+    message = "Fellow created and invitation email sent."
     try:
         send_invitation_email(user=user, raw_token=raw_token)
     except Exception:
-        import logging
-        logging.getLogger(__name__).exception("Failed to send invitation email to user_id=%s", user.id)
-    return CreateStudentResponse.model_validate(user)
+        logger.exception("Failed to send invitation email to user_id=%s", user.id)
+        invitation_sent = False
+        message = (
+            "Fellow created, but the invitation email could not be sent. "
+            "Retry the invitation delivery without creating another account."
+        )
+    response = CreateStudentResponse.model_validate(user)
+    return response.model_copy(
+        update={
+            "invitation_sent": invitation_sent,
+            "message": message,
+        }
+    )
+
+
+@router.post(
+    "/fellows/{fellow_id}/resend-invitation",
+    response_model=InvitationDeliveryResponse,
+    summary="Replace and resend a Fellow invitation",
+)
+def resend_fellow_invitation(
+    fellow_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)),
+) -> InvitationDeliveryResponse:
+    user = db.scalar(
+        select(User).where(
+            User.id == fellow_id,
+            User.role.in_([UserRole.FELLOW, UserRole.STUDENT]),
+        )
+    )
+    if user is None:
+        raise _not_found("Fellow", fellow_id)
+    if (
+        user.account_status != AccountStatus.INVITED
+        or user.password_set_at is not None
+    ):
+        raise _conflict(
+            "Invitation cannot be resent after onboarding has started or completed."
+        )
+
+    raw_token = replace_invitation_for_user(db, user)
+    db.commit()
+
+    try:
+        send_invitation_email(user=user, raw_token=raw_token)
+    except Exception:
+        logger.exception(
+            "Failed to resend invitation email to user_id=%s", user.id
+        )
+        return InvitationDeliveryResponse(
+            invitation_sent=False,
+            message=(
+                "A replacement invitation was created, but email delivery failed. "
+                "Review the mail service and retry."
+            ),
+        )
+
+    return InvitationDeliveryResponse(
+        invitation_sent=True,
+        message="Replacement invitation email sent.",
+    )
 
 
 @router.get("/fellows", summary="List all Fellows")
@@ -919,14 +984,14 @@ def create_session(
 
     except Exception as exc:
         db.rollback()
+        logger.exception(
+            "Google Calendar event creation failed for session_id=%s",
+            session.id,
+        )
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                "Unable to create Google Calendar "
-                "event and Meet link. "
-                f"{str(exc)}"
-            ),
+            detail="Unable to create the Google Calendar event and Meet link.",
         ) from exc
 
     return {
@@ -1446,14 +1511,14 @@ def update_session(
 
     except Exception as exc:
         db.rollback()
+        logger.exception(
+            "Google Calendar event update failed for session_id=%s",
+            session.id,
+        )
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                "Unable to update Session and "
-                "Google Calendar event. "
-                f"{str(exc)}"
-            ),
+            detail="Unable to update the Session and Google Calendar event.",
         ) from exc
 
     return {
@@ -1614,14 +1679,14 @@ def delete_session(
 
     except Exception as exc:
         db.rollback()
+        logger.exception(
+            "Google Calendar event deletion failed for session_id=%s",
+            session.id,
+        )
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=(
-                "Unable to delete Session and "
-                "Google Calendar event. "
-                f"{str(exc)}"
-            ),
+            detail="Unable to delete the Session and Google Calendar event.",
         ) from exc
 
 

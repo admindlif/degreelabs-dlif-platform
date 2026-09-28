@@ -32,8 +32,15 @@ class CreateFellowResponse(BaseModel):
     role: UserRole
     account_status: AccountStatus
     created_at: datetime
+    invitation_sent: bool = True
+    message: str = "Invitation email sent."
 
     model_config = {"from_attributes": True}
+
+
+class InvitationDeliveryResponse(BaseModel):
+    invitation_sent: bool
+    message: str
 
 
 # Backwards-compatible aliases
@@ -62,6 +69,17 @@ class ActivateAccountResponse(BaseModel):
     message: str
     user_id: UUID
     email: EmailStr
+    onboarding_token: str
+    token_type: str = "bearer"
+
+
+class OnboardingResumeRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class OnboardingResumeResponse(BaseModel):
+    message: str
     onboarding_token: str
     token_type: str = "bearer"
 

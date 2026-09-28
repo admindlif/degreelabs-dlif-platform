@@ -17,6 +17,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -63,6 +64,24 @@ def create_invitation_for_user(
     create_invitation_token(db, invitation)
 
     return raw_token
+
+
+def replace_invitation_for_user(
+    db: Session,
+    user: User,
+) -> str:
+    """Invalidate outstanding links and create one replacement invitation."""
+    now = datetime.now(timezone.utc)
+    outstanding = db.scalars(
+        select(UserInvitationToken).where(
+            UserInvitationToken.user_id == user.id,
+            UserInvitationToken.used_at.is_(None),
+        )
+    ).all()
+    for invitation in outstanding:
+        invitation.used_at = now
+
+    return create_invitation_for_user(db, user)
 
 
 # ---------------------------------------------------------------------------

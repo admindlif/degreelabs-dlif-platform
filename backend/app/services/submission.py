@@ -4,7 +4,6 @@ from uuid import UUID
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.models.session import Session as DBSession
 from app.models.submission import TeamSubmission
 from app.models.team import TeamMemberRole
 from app.models.user import User
@@ -63,20 +62,6 @@ def _get_submission_context(
     )
 
     if not session:
-        any_session = db.get(
-            DBSession,
-            session_id,
-        )
-
-        if any_session:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Access denied: Session belongs "
-                    "to another Cohort."
-                ),
-            )
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found.",

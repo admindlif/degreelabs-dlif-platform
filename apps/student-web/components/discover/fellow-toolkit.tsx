@@ -131,7 +131,7 @@ export function FellowToolkit() {
             resources.map((resource) => {
               const accent = resourceAccentColor(resource.resource_type);
               const handleClick = () => {
-                if (resource.url) window.open(resource.url, "_blank");
+                if (resource.url) window.open(resource.url, "_blank", "noopener,noreferrer");
               };
               return (
                 <div

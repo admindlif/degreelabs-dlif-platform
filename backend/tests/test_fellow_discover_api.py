@@ -466,9 +466,9 @@ def test_cross_cohort_session_isolation(db: Session, student_client: TestClient,
     token = create_access_token(subject=str(fellow_user.id), role=fellow_user.role.value)
     headers = {"Authorization": f"Bearer {token}"}
 
-    # Attempt to retrieve other cohort's session -> must be rejected with HTTP 403 Forbidden
+    # Cross-cohort identifiers are hidden behind the same not-found response.
     res = student_client.get(f"/api/v1/fellow/sessions/{other_session.id}", headers=headers)
-    assert res.status_code == 403
+    assert res.status_code == 404
 
     # Cleanup
     db.delete(other_session)

@@ -1,7 +1,9 @@
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
+
+from app.schemas.url_validation import validate_external_url
 
 
 class TeamSubmissionUpsertRequest(BaseModel):
@@ -10,6 +12,16 @@ class TeamSubmissionUpsertRequest(BaseModel):
         min_length=1,
         max_length=1000,
     )
+
+    @field_validator("drive_url", mode="before")
+    @classmethod
+    def validate_drive_url(cls, value: object) -> str:
+        return validate_external_url(
+            value,
+            field_name="Drive URL",
+            required=True,
+            allowed_hosts={"drive.google.com", "docs.google.com"},
+        )  # type: ignore[return-value]
 
 
 class TeamSubmissionDetail(BaseModel):

@@ -11,7 +11,6 @@ from app.repositories.resource import (
 from app.schemas.team_resource import ResourceResponse
 from uuid import UUID
 
-from app.models.session import Session as DBSession
 from app.repositories.discover import (
     get_phase_by_code,
     get_session_by_id_for_cohort,
@@ -89,20 +88,6 @@ def get_fellow_session_resources(
     )
 
     if not session:
-        any_session = db.get(
-            DBSession,
-            session_id,
-        )
-
-        if any_session:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail=(
-                    "Access denied: Session belongs "
-                    "to another Cohort."
-                ),
-            )
-
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found.",

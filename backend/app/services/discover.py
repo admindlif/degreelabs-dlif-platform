@@ -323,14 +323,6 @@ def get_session_detail(db: Session, current_user: User, session_id: UUID) -> Ses
 
     session = get_session_by_id_for_cohort(db, session_id, enrollment.cohort_id)
     if not session:
-        # Check if the session exists in database at all (for another cohort)
-        from app.models.session import Session as DBSession
-        any_session = db.get(DBSession, session_id)
-        if any_session:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="Access denied: Session belongs to another cohort.",
-            )
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Session not found.",

@@ -8,6 +8,7 @@ import { Shield, Lock, Mail, KeyRound, AlertCircle, ArrowRight, ArrowLeft, Loade
 import { useAuth } from "@/lib/auth-context";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const ONBOARDING_RESUME_KEY = "dlif_onboarding_resume";
 
 export default function StudentLoginPage() {
   const router = useRouter();
@@ -42,6 +43,19 @@ export default function StudentLoginPage() {
       const data = await res.json().catch(() => ({}));
 
       if (!res.ok) {
+        if (res.status === 403) {
+          const resumeRes = await fetch(`${API_URL}/api/v1/auth/onboarding/resume`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: email.trim(), password }),
+          });
+          const resumeData = await resumeRes.json().catch(() => ({}));
+          if (resumeRes.ok && resumeData.onboarding_token) {
+            sessionStorage.setItem(ONBOARDING_RESUME_KEY, resumeData.onboarding_token);
+            router.push("/activate?resume=1");
+            return;
+          }
+        }
         setError(data.detail || "Invalid email or password.");
         return;
       }
