@@ -8,6 +8,8 @@ import {
     Video,
 } from "lucide-react";
 
+import Link from "next/link";
+
 import { PortalShell } from "@/components/layout/portal-shell";
 import { getDiscoverWeeks } from "@/lib/api/discover";
 import { DiscoverWeek, SessionSummary } from "@/lib/api/types";
@@ -76,8 +78,8 @@ export default function SessionsPage() {
                             <div
                                 key={session.id}
                                 className={`p-5 rounded-2xl border ${locked
-                                        ? "bg-[var(--color-bg-subtle)] border-[var(--color-border-default)]"
-                                        : "bg-white border-[var(--color-border-default)]"
+                                    ? "bg-[var(--color-bg-subtle)] border-[var(--color-border-default)]"
+                                    : "bg-white border-[var(--color-border-default)]"
                                     }`}
                             >
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -97,8 +99,8 @@ export default function SessionsPage() {
 
                                         <h2
                                             className={`text-lg font-bold mt-1 ${locked
-                                                    ? "text-[var(--color-text-muted)]"
-                                                    : ""
+                                                ? "text-[var(--color-text-muted)]"
+                                                : ""
                                                 }`}
                                         >
                                             {session.title}
@@ -136,6 +138,13 @@ export default function SessionsPage() {
                                         </div>
                                     ) : (
                                         <div className="flex flex-wrap gap-2">
+                                            <Link
+                                                href={`/sessions/${session.id}`}
+                                                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[var(--color-border-default)] text-xs font-bold"
+                                            >
+                                                View Session
+                                            </Link>
+
                                             {session.meeting_url && (
                                                 <a
                                                     href={session.meeting_url}

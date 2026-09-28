@@ -22,6 +22,13 @@ from app.models.session import (
     SessionType,
 )
 
+from app.api.routes.admin import (
+    update_session as update_session_route,
+    delete_session as delete_session_route,
+)
+
+from app.schemas.admin_crud import SessionUpdate
+
 def create_program(db: Session) -> Program:
     program = Program(
         name=f"DLIF API Test {uuid4().hex[:6]}",
@@ -829,5 +836,266 @@ def test_session_creation_saves_google_calendar_metadata_and_lock_state(
         cleanup(
             db,
             users=[fellow],
+            programs=[program],
+        )
+def test_session_update_updates_existing_calendar_event(
+    db: Session,
+    admin_user: User,
+    monkeypatch,
+):
+    program = create_program(db)
+
+    cohort_a = create_cohort(
+        db,
+        program,
+        "UPDATE-CALENDAR-A",
+    )
+
+    cohort_b = create_cohort(
+        db,
+        program,
+        "UPDATE-CALENDAR-B",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    fellow_a = create_fellow(
+        db,
+        cohort_a,
+        "update-calendar-a",
+    )
+
+    fellow_b = create_fellow(
+        db,
+        cohort_b,
+        "update-calendar-b",
+    )
+
+    session = create_test_session(
+        db,
+        cohort_a,
+        phase,
+        session_number=9,
+    )
+
+    original_start = (
+        datetime.now(timezone.utc)
+        + timedelta(days=2)
+    )
+
+    session.start_at = original_start
+    session.end_at = (
+        original_start
+        + timedelta(hours=2)
+    )
+
+    session.google_calendar_event_id = (
+        "existing-event-123"
+    )
+
+    session.google_calendar_event_url = (
+        "https://calendar.google.com/"
+        "existing-event-123"
+    )
+
+    session.meeting_url = (
+        "https://meet.google.com/"
+        "original-meet"
+    )
+
+    session.google_meet_code = "original-meet"
+
+    session.is_unlocked = False
+    session.unlock_at = None
+
+    db.commit()
+    db.refresh(session)
+
+    captured = {}
+
+    def fake_update_calendar_event(
+        *,
+        event_id,
+        title,
+        description,
+        start_at,
+        end_at,
+        attendee_emails,
+    ):
+        captured["event_id"] = event_id
+        captured["title"] = title
+        captured["attendee_emails"] = attendee_emails
+
+        return {
+            "event_id": event_id,
+            "calendar_url": (
+                "https://calendar.google.com/"
+                "existing-event-123"
+            ),
+            "meeting_url": (
+                "https://meet.google.com/"
+                "original-meet"
+            ),
+            "meeting_code": "original-meet",
+        }
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.update_calendar_event",
+        fake_update_calendar_event,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.settings.google_calendar_enabled",
+        True,
+    )
+
+    updated_start = (
+        datetime.now(timezone.utc)
+        + timedelta(days=4)
+    )
+
+    try:
+        result = update_session_route(
+            session_id=str(session.id),
+            data=SessionUpdate(
+                title="Updated Strategy Review",
+                description="Updated Calendar test.",
+                start_at=updated_start,
+                end_at=(
+                    updated_start
+                    + timedelta(hours=2)
+                ),
+            ),
+            db=db,
+            _admin=admin_user,
+        )
+
+        assert result["title"] == (
+            "Updated Strategy Review"
+        )
+
+        assert (
+            captured["event_id"]
+            == "existing-event-123"
+        )
+
+        assert captured[
+            "attendee_emails"
+        ] == [fellow_a.email]
+
+        assert fellow_b.email not in (
+            captured["attendee_emails"]
+        )
+
+        db.refresh(session)
+
+        assert (
+            session.google_calendar_event_id
+            == "existing-event-123"
+        )
+
+        assert (
+            session.title
+            == "Updated Strategy Review"
+        )
+
+        assert session.is_unlocked is False
+        assert session.unlock_at is None
+
+    finally:
+        cleanup(
+            db,
+            users=[fellow_a, fellow_b],
+            programs=[program],
+        )
+def test_session_delete_deletes_google_calendar_event(
+    db: Session,
+    admin_user: User,
+    monkeypatch,
+):
+    program = create_program(db)
+
+    cohort = create_cohort(
+        db,
+        program,
+        "DELETE-CALENDAR",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    session = create_test_session(
+        db,
+        cohort,
+        phase,
+        session_number=10,
+    )
+
+    start_at = (
+        datetime.now(timezone.utc)
+        + timedelta(days=3)
+    )
+
+    session.start_at = start_at
+    session.end_at = (
+        start_at
+        + timedelta(hours=2)
+    )
+
+    session.google_calendar_event_id = (
+        "delete-event-456"
+    )
+
+    session.google_calendar_event_url = (
+        "https://calendar.google.com/"
+        "delete-event-456"
+    )
+
+    db.commit()
+
+    session_id = session.id
+
+    captured = {}
+
+    def fake_delete_calendar_event(
+        event_id: str,
+    ):
+        captured["event_id"] = event_id
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.delete_calendar_event",
+        fake_delete_calendar_event,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.settings.google_calendar_enabled",
+        True,
+    )
+
+    try:
+        delete_session_route(
+            session_id=str(session_id),
+            db=db,
+            _admin=admin_user,
+        )
+
+        assert (
+            captured["event_id"]
+            == "delete-event-456"
+        )
+
+        assert (
+            db.get(DBSession, session_id)
+            is None
+        )
+
+    finally:
+        cleanup(
+            db,
             programs=[program],
         )

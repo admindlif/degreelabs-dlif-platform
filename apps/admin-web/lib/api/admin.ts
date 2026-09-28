@@ -169,9 +169,13 @@ export interface SessionCreate {
   end_at: string;
 
   recording_url?: string;
+  transcript_url?: string;
+
+  submission_enabled?: boolean;
 
   status?: string;
   sequence: number;
+
 }
 
 export interface AdminTeam {
@@ -209,6 +213,7 @@ export interface TeamDetail extends AdminTeam {
 export interface AdminResource {
   id: string;
   phase_id: string;
+  session_id: string | null;
   title: string;
   subtitle: string | null;
   resource_type: string;
@@ -220,6 +225,7 @@ export interface AdminResource {
 
 export interface ResourceCreate {
   phase_id: string;
+  session_id?: string | null;
   title: string;
   subtitle?: string;
   resource_type?: string;
@@ -405,6 +411,34 @@ export async function getAdminSessions(cohortId?: string, weekId?: string): Prom
   const qs = params.toString() ? `?${params}` : "";
   return adminApiClient<AdminSession[]>(`/api/v1/admin/sessions${qs}`);
 }
+export async function getAdminSessionSubmissions(
+  sessionId: string
+): Promise<AdminSessionSubmissionItem[]> {
+  return adminApiClient<AdminSessionSubmissionItem[]>(
+    `/api/v1/admin/sessions/${sessionId}/submissions`
+  );
+}
+
+export async function getAdminSubmissionFeedback(
+  submissionId: string
+): Promise<AdminSubmissionFeedback | null> {
+  return adminApiClient<AdminSubmissionFeedback | null>(
+    `/api/v1/admin/submissions/${submissionId}/feedback`
+  );
+}
+
+export async function saveAdminSubmissionFeedback(
+  submissionId: string,
+  data: AdminSubmissionFeedbackUpsert
+): Promise<AdminSubmissionFeedback> {
+  return adminApiClient<AdminSubmissionFeedback>(
+    `/api/v1/admin/submissions/${submissionId}/feedback`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
 
 export async function getAdminSession(id: string): Promise<AdminSession> {
   return adminApiClient<AdminSession>(`/api/v1/admin/sessions/${id}`);
@@ -472,13 +506,51 @@ export async function removeTeamMember(teamId: string, userId: string): Promise<
   await adminApiClient(`/api/v1/admin/teams/${teamId}/members/${userId}`, { method: "DELETE" });
 }
 
+export async function assignTeamLead(
+  teamId: string,
+  userId: string
+): Promise<any> {
+  return adminApiClient(
+    `/api/v1/admin/teams/${teamId}/lead`,
+    {
+      method: "PUT",
+      body: JSON.stringify({
+        user_id: userId,
+      }),
+    }
+  );
+}
 // ---------------------------------------------------------------------------
 // Resources
 // ---------------------------------------------------------------------------
 
-export async function getAdminResources(phaseId?: string): Promise<AdminResource[]> {
-  const qs = phaseId ? `?phase_id=${phaseId}` : "";
-  return adminApiClient<AdminResource[]>(`/api/v1/admin/resources${qs}`);
+export async function getAdminResources(
+  phaseId?: string,
+  sessionId?: string
+): Promise<AdminResource[]> {
+  const params = new URLSearchParams();
+
+  if (phaseId) {
+    params.set(
+      "phase_id",
+      phaseId
+    );
+  }
+
+  if (sessionId) {
+    params.set(
+      "session_id",
+      sessionId
+    );
+  }
+
+  const qs = params.toString()
+    ? `?${params.toString()}`
+    : "";
+
+  return adminApiClient<AdminResource[]>(
+    `/api/v1/admin/resources${qs}`
+  );
 }
 
 export async function getAdminResource(id: string): Promise<AdminResource> {
@@ -495,4 +567,50 @@ export async function updateResource(id: string, data: Partial<ResourceCreate>):
 
 export async function deleteResource(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/resources/${id}`, { method: "DELETE" });
+}
+
+export interface AdminTeamSubmissionDetail {
+  id: string;
+  session_id: string;
+  team_id: string;
+  submitted_by_user_id: string | null;
+
+  drive_url: string;
+
+  submitted_at: string;
+  updated_at: string;
+}
+
+export interface AdminSessionSubmissionItem {
+  team_id: string;
+  team_name: string;
+
+  team_lead_user_id: string | null;
+  team_lead_name: string | null;
+
+  submission: AdminTeamSubmissionDetail | null;
+}
+
+export type AdminFeedbackStatus =
+  | "revision_required"
+  | "accepted";
+
+export interface AdminSubmissionFeedback {
+  id: string;
+  submission_id: string;
+  reviewed_by_user_id: string | null;
+
+  feedback_text: string;
+  feedback_url: string | null;
+
+  status: AdminFeedbackStatus;
+
+  created_at: string;
+  updated_at: string;
+}
+
+export interface AdminSubmissionFeedbackUpsert {
+  feedback_text: string;
+  feedback_url?: string | null;
+  status: AdminFeedbackStatus;
 }

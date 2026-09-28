@@ -5,8 +5,6 @@ import Image from "next/image";
 import {
   LayoutDashboard,
   Users,
-  GraduationCap,
-  UserCheck,
   Compass,
   Layers,
   Calendar,
@@ -14,11 +12,6 @@ import {
   BookOpen,
   FileCheck,
   Users2,
-  Building2,
-  Target,
-  Bell,
-  Settings,
-  ShieldCheck,
   Plus,
   Search,
   CheckCircle2,
@@ -27,13 +20,8 @@ import {
   ExternalLink,
   LogOut,
   RefreshCw,
-  Mail,
   Shield,
-  Send,
   X,
-  Activity,
-  Server,
-  Database,
   ArrowRight,
   Lock,
   Unlock,
@@ -72,6 +60,8 @@ import {
   inviteFellow,
   unlockSession,
   lockSession,
+  AdminSessionSubmissionItem,
+  getAdminSessionSubmissions,
 } from "@/lib/api/admin";
 
 
@@ -85,26 +75,20 @@ import { SessionModal } from "@/components/admin/session-modal";
 import { TeamModal } from "@/components/admin/team-modal";
 import { ResourceModal } from "@/components/admin/resource-modal";
 import { CohortFellowsModal } from "@/components/admin/cohort-fellows-modal";
+import { TeamMembersModal } from "@/components/admin/team-members-modal";
+import { SubmissionFeedbackModal } from "@/components/admin/submission-feedback-modal";
 
 type NavTab =
   | "Dashboard"
   | "Fellows"
-  | "Mentors"
-  | "Program Managers"
   | "Programs"
   | "Phases"
   | "Cohorts"
   | "Weeks"
   | "Sessions"
-  | "Resources"
-  | "Weekly Outputs"
   | "Teams"
-  | "Companies"
-  | "Challenges"
-  | "Attendance"
-  | "Notifications"
-  | "Settings"
-  | "Audit Logs";
+  | "Resources"
+  | "Weekly Outputs";
 
 interface NavGroup {
   label: string;
@@ -130,6 +114,7 @@ export default function AdminHomePage() {
   const [cohorts, setCohorts] = React.useState<AdminCohort[]>([]);
   const [weeks, setWeeks] = React.useState<AdminWeek[]>([]);
   const [sessions, setSessions] = React.useState<AdminSession[]>([]);
+  const [resources, setResources] = React.useState<AdminResource[]>([]);
   const [teams, setTeams] = React.useState<AdminTeam[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
@@ -176,6 +161,18 @@ export default function AdminHomePage() {
   const [showSessionModal, setShowSessionModal] =
     React.useState(false);
 
+  const [showTeamMembersModal, setShowTeamMembersModal] =
+    React.useState(false);
+
+  const [selectedTeamForMembers, setSelectedTeamForMembers] =
+    React.useState<AdminTeam | null>(null);
+
+  const [showTeamModal, setShowTeamModal] =
+    React.useState(false);
+
+  const [selectedTeam, setSelectedTeam] =
+    React.useState<AdminTeam | null>(null);
+
   const [selectedSession, setSelectedSession] =
     React.useState<AdminSession | null>(null);
 
@@ -188,6 +185,30 @@ export default function AdminHomePage() {
   const [selectedProgram, setSelectedProgram] =
     React.useState<AdminProgram | null>(null);
 
+  const [weeklyOutputCohortId, setWeeklyOutputCohortId] =
+    React.useState("");
+
+  const [weeklyOutputSessionId, setWeeklyOutputSessionId] =
+    React.useState("");
+
+  const [weeklyOutputSubmissions, setWeeklyOutputSubmissions] =
+    React.useState<AdminSessionSubmissionItem[]>([]);
+
+  const [weeklyOutputLoading, setWeeklyOutputLoading] =
+    React.useState(false);
+
+  const [
+    showSubmissionFeedbackModal,
+    setShowSubmissionFeedbackModal,
+  ] = React.useState(false);
+
+  const [
+    selectedSubmissionForFeedback,
+    setSelectedSubmissionForFeedback,
+  ] = React.useState<AdminSessionSubmissionItem | null>(null);
+
+  const [weeklyOutputError, setWeeklyOutputError] =
+    React.useState<string | null>(null);
   const loadData = React.useCallback(async () => {
     setLoading(true);
     try {
@@ -199,6 +220,7 @@ export default function AdminHomePage() {
         cohortsData,
         weeksData,
         sessionsData,
+        resourcesData,
         teamsData,
       ] = await Promise.all([
         getAdminStats().catch(() => null),
@@ -208,6 +230,7 @@ export default function AdminHomePage() {
         getAdminCohorts().catch(() => []),
         getAdminWeeks().catch(() => []),
         getAdminSessions().catch(() => []),
+        getAdminResources().catch(() => []),
         getAdminTeams().catch(() => []),
       ]);
 
@@ -221,6 +244,7 @@ export default function AdminHomePage() {
       setCohorts(cohortsData);
       setWeeks(weeksData);
       setSessions(sessionsData);
+      setResources(resourcesData);
       setTeams(teamsData);
     } catch (err) {
       console.error("Failed to load admin data:", err);
@@ -264,65 +288,83 @@ export default function AdminHomePage() {
   const navGroups: NavGroup[] = [
     {
       label: "OVERVIEW",
-      items: [{ name: "Dashboard", icon: LayoutDashboard }],
+      items: [
+        {
+          name: "Dashboard",
+          icon: LayoutDashboard,
+        },
+      ],
     },
+
     {
       label: "PEOPLE",
       items: [
         {
           name: "Fellows",
           icon: Users,
-          badge: fellows.length > 0 ? String(fellows.length) : undefined,
+          badge:
+            fellows.length > 0
+              ? String(fellows.length)
+              : undefined,
         },
-        { name: "Mentors", icon: GraduationCap },
-        { name: "Program Managers", icon: UserCheck },
       ],
     },
+
     {
       label: "PROGRAM",
       items: [
-        { name: "Programs", icon: Compass },
-        { name: "Phases", icon: Layers },
+        {
+          name: "Programs",
+          icon: Compass,
+        },
+        {
+          name: "Phases",
+          icon: Layers,
+        },
         {
           name: "Cohorts",
           icon: Layers,
-          badge: cohorts.length > 0 ? String(cohorts.length) : undefined,
+          badge:
+            cohorts.length > 0
+              ? String(cohorts.length)
+              : undefined,
         },
-        { name: "Weeks", icon: Calendar },
-        { name: "Sessions", icon: Video },
+        {
+          name: "Weeks",
+          icon: Calendar,
+        },
+        {
+          name: "Sessions",
+          icon: Video,
+        },
       ],
     },
+
     {
       label: "COLLABORATION",
       items: [
         {
           name: "Teams",
           icon: Users2,
-          badge: teams.length > 0 ? String(teams.length) : undefined,
+          badge:
+            teams.length > 0
+              ? String(teams.length)
+              : undefined,
         },
-        { name: "Companies", icon: Building2 },
-        { name: "Challenges", icon: Target },
       ],
     },
+
     {
       label: "LEARNING",
       items: [
-        { name: "Resources", icon: BookOpen },
-        { name: "Weekly Outputs", icon: FileCheck },
-      ],
-    },
-    {
-      label: "OPERATIONS",
-      items: [
-        { name: "Attendance", icon: Calendar },
-        { name: "Notifications", icon: Bell },
-      ],
-    },
-    {
-      label: "SYSTEM",
-      items: [
-        { name: "Settings", icon: Settings },
-        { name: "Audit Logs", icon: ShieldCheck },
+        {
+          name: "Resources",
+          icon: BookOpen,
+        },
+        {
+          name: "Weekly Outputs",
+          icon: FileCheck,
+        },
       ],
     },
   ];
@@ -337,12 +379,57 @@ export default function AdminHomePage() {
     return matchesSearch && matchesStatus;
   });
 
+  React.useEffect(() => {
+    if (!weeklyOutputSessionId) {
+      setWeeklyOutputSubmissions([]);
+      return;
+    }
+
+    async function loadWeeklyOutputs() {
+      setWeeklyOutputLoading(true);
+      setWeeklyOutputError(null);
+
+      try {
+        const data =
+          await getAdminSessionSubmissions(
+            weeklyOutputSessionId
+          );
+
+        setWeeklyOutputSubmissions(data);
+      } catch (err: any) {
+        setWeeklyOutputError(
+          err?.message ||
+          "Unable to load Team submissions."
+        );
+      } finally {
+        setWeeklyOutputLoading(false);
+      }
+    }
+
+    loadWeeklyOutputs();
+  }, [weeklyOutputSessionId]);
+
+  const activePhase =
+    phases.find((phase) => phase.is_active) ??
+    phases[0] ??
+    null;
+
+  const activeCohorts =
+    cohorts.filter(
+      (cohort) => cohort.status === "active"
+    );
+
+  const primaryCohort =
+    activeCohorts[0] ??
+    cohorts[0] ??
+    null;
+
   return (
     <div className="min-h-screen flex bg-[var(--color-bg-canvas)] text-[var(--color-text-primary)]">
       {/* ── SIDEBAR ──────────────────────────────────────────────────────── */}
       <aside className="w-64 h-screen sticky top-0 bg-[var(--color-brand-navy)] flex flex-col shrink-0 border-r border-white/10 select-none overflow-hidden">
         {/* Brand Header */}
-        <div className="h-20 flex items-center px-6 border-b border-white/10 gap-3">
+        <div className="h-20 flex items-center px-5 border-b border-white/10">
           <div className="relative w-36 h-9 flex items-center">
             <Image
               src="/degreelabs-logo.png"
@@ -371,10 +458,10 @@ export default function AdminHomePage() {
         </div>
 
         {/* Navigation Groups */}
-        <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-5 admin-sidebar-scroll">
+        <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3 space-y-5 admin-sidebar-scroll">
           {navGroups.map((group) => (
             <div key={group.label} className="space-y-1">
-              <h4 className="px-3 text-[10px] font-bold uppercase tracking-widest text-white/40">
+              <h4 className="px-1 text-[10px] font-bold uppercase tracking-widest text-white/40">
                 {group.label}
               </h4>
               <div className="space-y-0.5 pt-1">
@@ -387,17 +474,17 @@ export default function AdminHomePage() {
                       key={item.name}
                       type="button"
                       onClick={() => setActiveTab(item.name)}
-                      className={`w-full flex items-center justify-between px-3 py-2 rounded-xl text-sm font-medium transition-all duration-150 group text-left ${isActive
+                      className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 group text-left ${isActive
                         ? "bg-[var(--color-brand-blue)] text-white font-bold shadow-md shadow-blue-500/20"
                         : "text-white/70 hover:bg-white/10 hover:text-white"
                         }`}
                     >
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 min-w-0">
                         <Icon
-                          className={`w-4 h-4 transition-transform group-hover:scale-110 ${isActive ? "text-white" : "text-white/60"
+                          className={`w-4 h-4 shrink-0 transition-transform group-hover:scale-110 ${isActive ? "text-white" : "text-white/60"
                             }`}
                         />
-                        <span>{item.name}</span>
+                        <span className="truncate">{item.name}</span>
                       </div>
                       {item.badge && (
                         <span
@@ -418,7 +505,7 @@ export default function AdminHomePage() {
         </div>
 
         {/* Admin Profile & Logout Footer */}
-        <div className="p-4 border-t border-white/10 bg-black/20">
+        <div className="px-5 py-4 border-t border-white/10 bg-black/20">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse" />
@@ -568,11 +655,20 @@ export default function AdminHomePage() {
                     </div>
                   </div>
                   <div className="text-xl font-extrabold text-[var(--color-text-primary)]">
-                    DISCOVER (THINK)
+                    {activePhase
+                      ? `${activePhase.name}${activePhase.development_role
+                        ? ` (${activePhase.development_role})`
+                        : ""
+                      }`
+                      : "Not configured"}
                   </div>
                   <div className="flex items-center gap-1.5 mt-2 text-xs text-[var(--color-brand-orange)] font-bold">
                     <Clock className="w-3.5 h-3.5" />
-                    <span>Week 1 of 4 • In Progress</span>
+                    <span>
+                      {activePhase
+                        ? `${activePhase.duration_weeks} Weeks configured`
+                        : "Phase not configured"}
+                    </span>
                   </div>
                 </div>
 
@@ -586,10 +682,12 @@ export default function AdminHomePage() {
                     </div>
                   </div>
                   <div className="text-3xl font-extrabold text-[var(--color-text-primary)]">
-                    {cohorts.length || 2}
+                    {activeCohorts.length}
                   </div>
                   <div className="text-xs text-[var(--color-text-muted)] mt-2">
-                    Cohort 2026-A (Primary)
+                    {primaryCohort
+                      ? `${primaryCohort.name}`
+                      : "No active Cohort"}
                   </div>
                 </div>
 
@@ -603,50 +701,16 @@ export default function AdminHomePage() {
                     </div>
                   </div>
                   <div className="text-3xl font-extrabold text-[var(--color-text-primary)]">
-                    {stats?.total_sessions ?? 14}
+                    {stats?.total_sessions ?? sessions.length}
                   </div>
                   <div className="text-xs text-[var(--color-text-muted)] mt-2">
-                    12 Curriculum + Induction + Review
+                    {sessions.length > 0
+                      ? `${sessions.length} Sessions configured`
+                      : "No Sessions configured"}
                   </div>
                 </div>
               </div>
 
-              {/* System Architecture Strip */}
-              <div className="p-6 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Server className="w-4 h-4 text-[var(--color-brand-blue)]" />
-                    <h3 className="text-sm font-bold">Platform Microservice Runtime Health</h3>
-                  </div>
-                  <span className="inline-flex items-center gap-1.5 text-xs text-[var(--color-success)] font-bold">
-                    <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse" />
-                    All Microservices Healthy
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
-                  {[
-                    { name: "Student API (Fellow)", port: "8000", role: "Fellow Portal" },
-                    { name: "Mentor API (Faculty)", port: "8001", role: "Mentor Portal" },
-                    { name: "Admin API (Ops)", port: "8002", role: "Admin Console" },
-                    { name: "PostgreSQL Database", port: "5432", role: "Shared Persistence" },
-                  ].map((service) => (
-                    <div
-                      key={service.name}
-                      className="p-3.5 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)]"
-                    >
-                      <div className="flex items-center justify-between text-xs font-bold mb-1">
-                        <span>{service.name}</span>
-                        <span className="text-[var(--color-success)]">ONLINE</span>
-                      </div>
-                      <div className="text-[11px] text-[var(--color-text-muted)] flex justify-between">
-                        <span>Port {service.port}</span>
-                        <span>{service.role}</span>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
 
               {/* Recent Fellows Quick Table */}
               <div className="p-6 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] space-y-4">
@@ -654,7 +718,9 @@ export default function AdminHomePage() {
                   <div>
                     <h3 className="text-base font-bold">Recently Enrolled Fellows</h3>
                     <p className="text-xs text-[var(--color-text-muted)]">
-                      Fellows currently enrolled in Cohort 2026-A
+                      {primaryCohort
+                        ? `Fellows in ${primaryCohort.name}`
+                        : "Recently added Fellows"}
                     </p>
                   </div>
                   <button
@@ -833,46 +899,45 @@ export default function AdminHomePage() {
                             {f.created_at ? new Date(f.created_at).toLocaleDateString() : "Recent"}
                           </td>
                           <td className="py-3 px-4 text-right">
-                            <td className="py-3 px-4">
-                              <div className="flex items-center justify-end gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    alert(
-                                      `Fellow Profile: ${f.first_name} ${f.last_name} (${f.email})`
-                                    )
+
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  alert(
+                                    `Fellow Profile: ${f.first_name} ${f.last_name} (${f.email})`
+                                  )
+                                }
+                                className="px-2.5 py-1 rounded-lg border border-[var(--color-border-default)] hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)] font-semibold transition-colors text-[11px]"
+                              >
+                                Details
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  const confirmed = window.confirm(
+                                    `Are you sure you want to delete ${f.first_name} ${f.last_name}?`
+                                  );
+
+                                  if (!confirmed) {
+                                    return;
                                   }
-                                  className="px-2.5 py-1 rounded-lg border border-[var(--color-border-default)] hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)] font-semibold transition-colors text-[11px]"
-                                >
-                                  Details
-                                </button>
 
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    const confirmed = window.confirm(
-                                      `Are you sure you want to delete ${f.first_name} ${f.last_name}?`
+                                  try {
+                                    await deleteFellow(f.id);
+                                    await loadData();
+                                  } catch (err: any) {
+                                    window.alert(
+                                      err?.message || "Unable to delete Fellow."
                                     );
-
-                                    if (!confirmed) {
-                                      return;
-                                    }
-
-                                    try {
-                                      await deleteFellow(f.id);
-                                      await loadData();
-                                    } catch (err: any) {
-                                      window.alert(
-                                        err?.message || "Unable to delete Fellow."
-                                      );
-                                    }
-                                  }}
-                                  className="px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-semibold transition-colors text-[11px]"
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            </td>
+                                  }
+                                }}
+                                className="px-2.5 py-1 rounded-lg border border-red-200 text-red-600 hover:bg-red-50 font-semibold transition-colors text-[11px]"
+                              >
+                                Delete
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))
@@ -1376,41 +1441,107 @@ export default function AdminHomePage() {
           {/* TAB 5: TEAMS */}
           {activeTab === "Teams" && (
             <div className="space-y-6">
-              <div>
-                <h2 className="text-xl font-extrabold tracking-tight">Fellow Teams & Company Challenges</h2>
-                <p className="text-xs text-[var(--color-text-muted)]">
-                  Fellow team groupings and their assigned industry challenges.
-                </p>
+
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-xl font-extrabold tracking-tight">
+                    Fellow Teams & Company Challenges
+                  </h2>
+
+                  <p className="text-xs text-[var(--color-text-muted)]">
+                    Fellow team groupings and their assigned industry challenges.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedTeam(null);
+                    setShowTeamModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold"
+                >
+                  <Plus className="w-4 h-4" />
+                  Create Team
+                </button>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {teams.map((t) => (
-                  <div
-                    key={t.id}
-                    className="p-6 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] space-y-4"
-                  >
-                    <div className="flex items-center justify-between">
-                      <span className="text-base font-extrabold">Team {t.name}</span>
-                      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--color-brand-blue-subtle)] text-[var(--color-brand-blue)]">
-                        {t.member_count} Fellows
-                      </span>
-                    </div>
 
-                    <div className="p-4 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)]">
-                      <span className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] tracking-wider">
-                        Assigned Company Challenge
-                      </span>
-                      <div className="text-sm font-bold text-[var(--color-text-primary)] mt-1">
-                        {t.company_challenge}
-                      </div>
-                    </div>
+                {teams.length === 0 ? (
+                  <div className="md:col-span-2 rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-10 text-center">
+                    <h3 className="text-sm font-bold">
+                      No Teams created yet
+                    </h3>
 
-                    <div className="text-xs text-[var(--color-text-muted)] flex items-center justify-between">
-                      <span>Cohort: 2026-A</span>
-                      <span>Dedicated Team Mentor Assigned</span>
-                    </div>
+                    <p className="text-xs text-[var(--color-text-muted)] mt-2">
+                      Create a Team first, then add Fellows and assign a Team Lead.
+                    </p>
                   </div>
-                ))}
+                ) : (
+                  teams.map((t) => (
+                    <div
+                      key={t.id}
+                      className="p-6 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] space-y-4"
+                    >
+
+                      <div className="flex items-center justify-between">
+                        <span className="text-base font-extrabold">
+                          Team {t.name}
+                        </span>
+
+                        <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--color-brand-blue-subtle)] text-[var(--color-brand-blue)]">
+                          {t.member_count} Fellows
+                        </span>
+                      </div>
+
+                      <div className="p-4 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)]">
+                        <span className="text-[10px] uppercase font-bold text-[var(--color-text-muted)] tracking-wider">
+                          Assigned Company Challenge
+                        </span>
+
+                        <div className="text-sm font-bold text-[var(--color-text-primary)] mt-1">
+                          {t.company_challenge || "Not assigned"}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between pt-2 border-t border-[var(--color-border-default)]">
+
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {t.member_count} Team Members
+                        </span>
+
+                        <div className="flex gap-2">
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTeam(t);
+                              setShowTeamModal(true);
+                            }}
+                            className="px-3 py-2 rounded-lg border border-[var(--color-border-default)] text-xs font-bold"
+                          >
+                            Edit
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedTeamForMembers(t);
+                              setShowTeamMembersModal(true);
+                            }}
+                            className="px-3 py-2 rounded-lg border border-[var(--color-border-default)] text-xs font-bold hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]"
+                          >
+                            Manage Team
+                          </button>
+
+                        </div>
+                      </div>
+
+                    </div>
+                  ))
+                )}
+
               </div>
             </div>
           )}
@@ -1649,8 +1780,8 @@ export default function AdminHomePage() {
 
                                 <span
                                   className={`inline-flex w-fit px-2 py-0.5 rounded-full text-[10px] font-bold ${session.is_unlocked
-                                      ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                      : "bg-amber-50 text-amber-7 00 border border-amber-200"
+                                    ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                    : "bg-amber-50 text-amber-7 00 border border-amber-200"
                                     }`}
                                 >
                                   {session.is_unlocked ? (
@@ -1775,41 +1906,461 @@ export default function AdminHomePage() {
             </div>
           )}
 
-          {/* TAB 7: DEFAULT / SYSTEM SETTINGS */}
-          {activeTab !== "Dashboard" &&
-            activeTab !== "Fellows" &&
-            activeTab !== "Cohorts" &&
-            activeTab !== "Programs" &&
-            activeTab !== "Phases" &&
-            activeTab !== "Teams" &&
-            activeTab !== "Sessions" &&
-            activeTab !== "Weeks" && (
-              <div className="p-8 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-[var(--color-brand-blue-subtle)] text-[var(--color-brand-blue)] flex items-center justify-center">
-                    <ShieldCheck className="w-5 h-5" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-bold">{activeTab} Console</h2>
-                    <p className="text-xs text-[var(--color-text-muted)]">
-                      Operations controls and administrative configurations for {activeTab}.
-                    </p>
-                  </div>
+          {/* RESOURCES */}
+          {activeTab === "Resources" && (
+            <div className="space-y-6">
+
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-extrabold">
+                    Resources
+                  </h2>
+
+                  <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                    Manage DISCOVER toolkit and Session-specific resources.
+                  </p>
                 </div>
 
-                <div className="p-4 rounded-xl bg-[var(--color-bg-canvas)] border border-[var(--color-border-default)] text-xs text-[var(--color-text-body)] space-y-2">
-                  <p>
-                    <strong>Portal Role:</strong> Administrator (SUPER_ADMIN)
-                  </p>
-                  <p>
-                    <strong>Enforcement Mode:</strong> Strict Argon2 password verification with JWT claims
-                  </p>
-                  <p>
-                    <strong>Connected Backend:</strong> Admin API runtime on port 8002
-                  </p>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedResource(null);
+                    setShowResourceModal(true);
+                  }}
+                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold"
+                >
+                  <Plus className="w-4 h-4" />
+                  Add Resource
+                </button>
               </div>
-            )}
+
+
+              <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
+
+                <table className="w-full text-left text-xs">
+
+                  <thead className="bg-[var(--color-bg-canvas)] border-b">
+                    <tr>
+                      <th className="py-3 px-4">
+                        Resource
+                      </th>
+
+                      <th className="py-3 px-4">
+                        Scope
+                      </th>
+
+                      <th className="py-3 px-4">
+                        Type
+                      </th>
+
+                      <th className="py-3 px-4">
+                        Status
+                      </th>
+
+                      <th className="py-3 px-4 text-right">
+                        Actions
+                      </th>
+                    </tr>
+                  </thead>
+
+
+                  <tbody className="divide-y divide-[var(--color-border-default)]">
+
+                    {resources.length === 0 ? (
+                      <tr>
+                        <td
+                          colSpan={5}
+                          className="py-10 text-center text-[var(--color-text-muted)]"
+                        >
+                          No resources added yet.
+                        </td>
+                      </tr>
+                    ) : (
+                      resources.map((resource) => {
+                        const session = resource.session_id
+                          ? sessions.find(
+                            (item) =>
+                              item.id === resource.session_id
+                          )
+                          : null;
+
+                        const cohort = session
+                          ? cohorts.find(
+                            (item) =>
+                              item.id === session.cohort_id
+                          )
+                          : null;
+
+                        return (
+                          <tr key={resource.id}>
+
+                            <td className="py-3 px-4">
+                              <div className="font-bold">
+                                {resource.title}
+                              </div>
+
+                              {resource.subtitle && (
+                                <div className="text-[10px] text-[var(--color-text-muted)] mt-1">
+                                  {resource.subtitle}
+                                </div>
+                              )}
+
+                              {resource.url && (
+                                <a
+                                  href={resource.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 mt-1 text-[10px] text-[var(--color-brand-blue)]"
+                                >
+                                  <ExternalLink className="w-3 h-3" />
+                                  Open
+                                </a>
+                              )}
+                            </td>
+
+
+                            <td className="py-3 px-4">
+                              {session ? (
+                                <div>
+                                  <div className="font-semibold">
+                                    Session {session.session_number}
+                                  </div>
+
+                                  <div className="text-[10px] text-[var(--color-text-muted)]">
+                                    {cohort?.name ?? "Cohort"} — {session.title}
+                                  </div>
+                                </div>
+                              ) : (
+                                <span className="inline-flex px-2 py-1 rounded-full bg-blue-50 text-blue-700 text-[10px] font-bold">
+                                  Phase Toolkit
+                                </span>
+                              )}
+                            </td>
+
+
+                            <td className="py-3 px-4 capitalize">
+                              {resource.resource_type}
+                            </td>
+
+
+                            <td className="py-3 px-4">
+                              <span
+                                className={`inline-flex px-2 py-1 rounded-full text-[10px] font-bold ${resource.is_active
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-slate-100 text-slate-600"
+                                  }`}
+                              >
+                                {resource.is_active
+                                  ? "Active"
+                                  : "Inactive"}
+                              </span>
+                            </td>
+
+
+                            <td className="py-3 px-4">
+                              <div className="flex justify-end gap-2">
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedResource(resource);
+                                    setShowResourceModal(true);
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border border-[var(--color-border-default)] font-semibold"
+                                >
+                                  Edit
+                                </button>
+
+
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    if (
+                                      !window.confirm(
+                                        `Delete "${resource.title}"?`
+                                      )
+                                    ) {
+                                      return;
+                                    }
+
+                                    try {
+                                      await deleteResource(
+                                        resource.id
+                                      );
+
+                                      await loadData();
+                                    } catch (err: any) {
+                                      window.alert(
+                                        err?.message ||
+                                        "Unable to delete Resource."
+                                      );
+                                    }
+                                  }}
+                                  className="px-3 py-1.5 rounded-lg border border-red-200 text-red-600 font-semibold"
+                                >
+                                  Delete
+                                </button>
+
+                              </div>
+                            </td>
+
+                          </tr>
+                        );
+                      })
+                    )}
+
+                  </tbody>
+                </table>
+              </div>
+
+            </div>
+          )}
+
+          {/* WEEKLY OUTPUTS */}
+          {activeTab === "Weekly Outputs" && (
+            <div className="space-y-6">
+
+              <div>
+                <h2 className="text-xl font-extrabold">
+                  Team Submissions
+                </h2>
+
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                  Review Team submissions for each DISCOVER Session.
+                </p>
+              </div>
+
+              {/* FILTERS */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-5 rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)]">
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    Cohort
+                  </label>
+
+                  <select
+                    value={weeklyOutputCohortId}
+                    onChange={(e) => {
+                      setWeeklyOutputCohortId(
+                        e.target.value
+                      );
+
+                      setWeeklyOutputSessionId("");
+                      setWeeklyOutputSubmissions([]);
+                    }}
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)]"
+                  >
+                    <option value="">
+                      Select Cohort
+                    </option>
+
+                    {cohorts.map((cohort) => (
+                      <option
+                        key={cohort.id}
+                        value={cohort.id}
+                      >
+                        {cohort.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+
+                <div>
+                  <label className="block text-xs font-bold mb-1">
+                    Session
+                  </label>
+
+                  <select
+                    value={weeklyOutputSessionId}
+                    disabled={!weeklyOutputCohortId}
+                    onChange={(e) =>
+                      setWeeklyOutputSessionId(
+                        e.target.value
+                      )
+                    }
+                    className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] disabled:opacity-50"
+                  >
+                    <option value="">
+                      Select Session
+                    </option>
+
+                    {sessions
+                      .filter(
+                        (session) =>
+                          session.cohort_id ===
+                          weeklyOutputCohortId
+                      )
+                      .sort(
+                        (a, b) =>
+                          a.session_number -
+                          b.session_number
+                      )
+                      .map((session) => (
+                        <option
+                          key={session.id}
+                          value={session.id}
+                        >
+                          Session {session.session_number} —{" "}
+                          {session.title}
+                        </option>
+                      ))}
+                  </select>
+                </div>
+
+              </div>
+
+
+              {/* NO SESSION */}
+              {!weeklyOutputSessionId && (
+                <div className="rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] p-10 text-center text-sm text-[var(--color-text-muted)]">
+                  Select a Cohort and Session to view Team submissions.
+                </div>
+              )}
+
+
+              {/* LOADING */}
+              {weeklyOutputSessionId &&
+                weeklyOutputLoading && (
+                  <div className="rounded-2xl border p-10 text-center text-sm text-[var(--color-text-muted)]">
+                    Loading Team submissions...
+                  </div>
+                )}
+
+
+              {/* ERROR */}
+              {weeklyOutputError && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {weeklyOutputError}
+                </div>
+              )}
+
+
+              {/* SUBMISSIONS */}
+              {weeklyOutputSessionId &&
+                !weeklyOutputLoading &&
+                !weeklyOutputError && (
+                  <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
+
+                    <table className="w-full text-left text-xs">
+
+                      <thead className="bg-[var(--color-bg-canvas)] border-b">
+                        <tr>
+                          <th className="py-3 px-4">
+                            Team
+                          </th>
+
+                          <th className="py-3 px-4">
+                            Team Lead
+                          </th>
+
+                          <th className="py-3 px-4">
+                            Status
+                          </th>
+
+                          <th className="py-3 px-4">
+                            Submitted
+                          </th>
+
+                          <th className="py-3 px-4 text-right">
+                            Action
+                          </th>
+                        </tr>
+                      </thead>
+
+                      <tbody className="divide-y divide-[var(--color-border-default)]">
+
+                        {weeklyOutputSubmissions.length === 0 ? (
+                          <tr>
+                            <td
+                              colSpan={5}
+                              className="py-10 text-center text-[var(--color-text-muted)]"
+                            >
+                              No Teams found for this Session&apos;s Cohort.
+                            </td>
+                          </tr>
+                        ) : (
+                          weeklyOutputSubmissions.map(
+                            (item) => (
+                              <tr key={item.team_id}>
+
+                                <td className="py-4 px-4 font-bold">
+                                  Team {item.team_name}
+                                </td>
+
+                                <td className="py-4 px-4">
+                                  {item.team_lead_name ||
+                                    "No Team Lead assigned"}
+                                </td>
+
+                                <td className="py-4 px-4">
+                                  {item.submission ? (
+                                    <span className="inline-flex px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                                      Submitted
+                                    </span>
+                                  ) : (
+                                    <span className="inline-flex px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                                      Not Submitted
+                                    </span>
+                                  )}
+                                </td>
+
+                                <td className="py-4 px-4 text-[var(--color-text-muted)]">
+                                  {item.submission
+                                    ? new Date(
+                                      item.submission.submitted_at
+                                    ).toLocaleString()
+                                    : "—"}
+                                </td>
+
+                                <td className="py-4 px-4">
+                                  <div className="flex justify-end gap-2">
+
+                                    {item.submission ? (
+                                      <>
+                                        <a
+                                          href={item.submission.drive_url}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[var(--color-border-default)] text-xs font-bold hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]"
+                                        >
+                                          <ExternalLink className="w-3.5 h-3.5" />
+                                          Open Submission
+                                        </a>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setSelectedSubmissionForFeedback(item);
+                                            setShowSubmissionFeedbackModal(true);
+                                          }}
+                                          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[var(--color-brand-blue)] text-white text-xs font-bold"
+                                        >
+                                          <FileCheck className="w-3.5 h-3.5" />
+                                          Review Feedback
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <span className="text-[var(--color-text-muted)]">
+                                        —
+                                      </span>
+                                    )}
+
+                                  </div>
+                                </td>
+
+                              </tr>
+                            )
+                          )
+                        )}
+
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+            </div>
+          )}
         </main>
       </div>
 
@@ -1987,6 +2538,25 @@ export default function AdminHomePage() {
         />
       )}
 
+      {showResourceModal && (
+        <ResourceModal
+          resource={selectedResource}
+          phases={phases}
+          sessions={sessions}
+          cohorts={cohorts}
+          onClose={() => {
+            setShowResourceModal(false);
+            setSelectedResource(null);
+          }}
+          onSaved={async () => {
+            setShowResourceModal(false);
+            setSelectedResource(null);
+
+            await loadData();
+          }}
+        />
+      )}
+
       {showCohortFellowsModal && selectedCohortForFellows && (
         <CohortFellowsModal
           cohort={selectedCohortForFellows}
@@ -2000,6 +2570,70 @@ export default function AdminHomePage() {
           }}
         />
       )}
+
+      {showTeamMembersModal && selectedTeamForMembers && (
+        <TeamMembersModal
+          team={selectedTeamForMembers}
+          onClose={() => {
+            setShowTeamMembersModal(false);
+            setSelectedTeamForMembers(null);
+          }}
+          onChanged={async () => {
+            await loadData();
+          }}
+        />
+      )}
+
+
+      {showTeamModal && (
+        <TeamModal
+          team={selectedTeam}
+          cohorts={cohorts}
+          onClose={() => {
+            setShowTeamModal(false);
+            setSelectedTeam(null);
+          }}
+          onSaved={async () => {
+            setShowTeamModal(false);
+            setSelectedTeam(null);
+            await loadData();
+          }}
+        />
+      )}
+
+      {showSubmissionFeedbackModal &&
+        selectedSubmissionForFeedback &&
+        selectedSubmissionForFeedback.submission && (
+          <SubmissionFeedbackModal
+            submissionId={
+              selectedSubmissionForFeedback.submission.id
+            }
+            teamName={
+              selectedSubmissionForFeedback.team_name
+            }
+            teamLeadName={
+              selectedSubmissionForFeedback.team_lead_name
+            }
+            onClose={() => {
+              setShowSubmissionFeedbackModal(false);
+              setSelectedSubmissionForFeedback(null);
+            }}
+            onSaved={async () => {
+              setShowSubmissionFeedbackModal(false);
+              setSelectedSubmissionForFeedback(null);
+
+              if (weeklyOutputSessionId) {
+                const data =
+                  await getAdminSessionSubmissions(
+                    weeklyOutputSessionId
+                  );
+
+                setWeeklyOutputSubmissions(data);
+              }
+            }}
+          />
+        )}
+
     </div>
   );
 }

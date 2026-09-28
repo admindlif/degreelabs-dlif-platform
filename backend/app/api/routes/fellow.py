@@ -9,18 +9,33 @@ from app.schemas.discover import (
     DiscoverOverviewResponse,
     DiscoverWeekResponse,
     SessionDetailResponse,
+    SessionSummary,
 )
 from app.schemas.fellow_context import FellowContextResponse
 from app.schemas.team_resource import ResourceResponse, TeamResponse
 from app.services.discover import (
     get_discover_overview,
     get_discover_weeks,
+    get_fellow_sessions,
     get_session_detail,
 )
 from app.services.fellow_context import get_fellow_context
-from app.services.resource import get_fellow_resources
+from app.services.resource import (
+    get_fellow_resources,
+    get_fellow_session_resources,
+)
 from app.services.team import get_fellow_team
+from app.schemas.submission import (
+    SessionSubmissionResponse,
+    TeamSubmissionUpsertRequest,
+)
+from app.services.submission import (
+    get_fellow_session_submission,
+    upsert_fellow_session_submission,
+)
 
+from app.schemas.feedback import SubmissionFeedbackDetail
+from app.services.feedback import get_fellow_session_feedback
 router = APIRouter(prefix="/fellow", tags=["Fellow Portal"])
 
 
@@ -80,6 +95,21 @@ def get_week_by_id(
     )
 
 
+
+@router.get(
+    "/sessions",
+    response_model=list[SessionSummary],
+    summary="Get all Sessions for authenticated Fellow's active Cohort",
+)
+def get_sessions(
+    current_user: User = Depends(require_fellow_portal),
+    db: Session = Depends(get_db),
+) -> list[SessionSummary]:
+    return get_fellow_sessions(
+        db,
+        current_user,
+    )
+
 @router.get(
     "/sessions/{session_id}",
     response_model=SessionDetailResponse,
@@ -92,6 +122,81 @@ def get_session(
 ) -> SessionDetailResponse:
     return get_session_detail(db, current_user, session_id)
 
+@router.get(
+    "/sessions/{session_id}/resources",
+    response_model=list[ResourceResponse],
+    summary="Get resources for an unlocked Session",
+)
+def get_session_resources(
+    session_id: UUID,
+    current_user: User = Depends(
+        require_fellow_portal
+    ),
+    db: Session = Depends(get_db),
+) -> list[ResourceResponse]:
+    return get_fellow_session_resources(
+        db,
+        current_user,
+        session_id,
+    )
+
+@router.get(
+    "/sessions/{session_id}/submission",
+    response_model=SessionSubmissionResponse,
+    summary="Get Team submission for an unlocked Session",
+)
+def get_session_submission(
+    session_id: UUID,
+    current_user: User = Depends(
+        require_fellow_portal
+    ),
+    db: Session = Depends(get_db),
+) -> SessionSubmissionResponse:
+    return get_fellow_session_submission(
+        db,
+        current_user,
+        session_id,
+    )
+
+
+@router.put(
+    "/sessions/{session_id}/submission",
+    response_model=SessionSubmissionResponse,
+    summary="Submit or resubmit Team work",
+)
+def upsert_session_submission(
+    session_id: UUID,
+    data: TeamSubmissionUpsertRequest,
+    current_user: User = Depends(
+        require_fellow_portal
+    ),
+    db: Session = Depends(get_db),
+) -> SessionSubmissionResponse:
+    return upsert_fellow_session_submission(
+        db,
+        current_user,
+        session_id,
+        data,
+    )
+
+
+@router.get(
+    "/sessions/{session_id}/feedback",
+    response_model=SubmissionFeedbackDetail | None,
+    summary="Get Team feedback for a Session",
+)
+def get_session_feedback(
+    session_id: UUID,
+    current_user: User = Depends(
+        require_fellow_portal
+    ),
+    db: Session = Depends(get_db),
+):
+    return get_fellow_session_feedback(
+        db=db,
+        current_user=current_user,
+        session_id=session_id,
+    )
 
 @router.get(
     "/team",

@@ -9,6 +9,8 @@ from app.models.user import AccountStatus, User, UserRole
 from app.models.user_invitation import UserInvitationToken
 from app.models.user_recovery_code import UserRecoveryCode
 from app.models.week import Week
+from app.models.submission import TeamSubmission
+from app.models.feedback import SubmissionFeedback
 
 __all__ = [
     "User",
@@ -31,4 +33,6 @@ __all__ = [
     "TeamMemberRole",
     "Resource",
     "ResourceType",
+    "TeamSubmission",
+    "SubmissionFeedback",
 ]

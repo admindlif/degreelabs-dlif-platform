@@ -137,3 +137,41 @@ export interface PhaseResource {
   sequence: number;
 }
 
+export interface TeamSubmissionDetail {
+  id: string;
+  session_id: string;
+  team_id: string;
+  submitted_by_user_id: string | null;
+
+  drive_url: string;
+
+  submitted_at: string;
+  updated_at: string;
+}
+
+export interface SessionSubmissionResponse {
+  submission: TeamSubmissionDetail | null;
+
+  can_submit: boolean;
+  is_team_lead: boolean;
+}
+
+export type SubmissionFeedbackStatus =
+  | "revision_required"
+  | "accepted";
+
+export interface SubmissionFeedback {
+  id: string;
+  submission_id: string;
+
+  reviewed_by_user_id: string | null;
+
+  feedback_text: string;
+  feedback_url: string | null;
+
+  status: SubmissionFeedbackStatus;
+
+  created_at: string;
+  updated_at: string;
+}
+

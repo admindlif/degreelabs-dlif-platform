@@ -57,12 +57,21 @@ from app.services.auth import DuplicateEmailError, admin_create_fellow
 from app.services.invitation import send_invitation_email
 from app.services.google_calendar import (
     create_calendar_event_with_meet,
-)
-
-from app.services.google_calendar import (
-    create_calendar_event_with_meet,
     update_calendar_event,
     delete_calendar_event,
+)
+
+from app.models.submission import TeamSubmission
+
+from app.schemas.submission import (
+    AdminSessionSubmissionItem,
+    TeamSubmissionDetail,
+)
+
+from app.models.feedback import SubmissionFeedback
+from app.schemas.feedback import (
+    SubmissionFeedbackDetail,
+    SubmissionFeedbackUpsertRequest,
 )
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -1079,6 +1088,230 @@ def get_session(
         "sequence": session.sequence,
     }
 
+@router.get(
+    "/sessions/{session_id}/submissions",
+    response_model=list[AdminSessionSubmissionItem],
+    summary="List Team submissions for a Session",
+)
+def list_session_submissions(
+    session_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    # -------------------------------------------------
+    # 1. Find Session
+    # -------------------------------------------------
+    session = db.scalar(
+        select(DBSession).where(
+            DBSession.id == session_id
+        )
+    )
+
+    if not session:
+        raise _not_found(
+            "Session",
+            session_id,
+        )
+
+    # -------------------------------------------------
+    # 2. Get every Team in this Session's Cohort
+    # -------------------------------------------------
+    teams = db.scalars(
+        select(Team)
+        .where(
+            Team.cohort_id == session.cohort_id,
+            Team.is_active.is_(True),
+        )
+        .order_by(Team.name)
+    ).all()
+
+    results: list[
+        AdminSessionSubmissionItem
+    ] = []
+
+    for team in teams:
+
+        # ---------------------------------------------
+        # Team Lead
+        # ---------------------------------------------
+        lead_membership = db.scalar(
+            select(TeamMembership).where(
+                TeamMembership.team_id == team.id,
+                TeamMembership.team_role
+                == TeamMemberRole.LEAD,
+            )
+        )
+
+        lead_user = None
+
+        if lead_membership:
+            lead_user = db.get(
+                User,
+                lead_membership.user_id,
+            )
+
+        # ---------------------------------------------
+        # Team Submission
+        # ---------------------------------------------
+        submission = db.scalar(
+            select(TeamSubmission).where(
+                TeamSubmission.team_id
+                == team.id,
+
+                TeamSubmission.session_id
+                == session.id,
+            )
+        )
+
+        lead_name = None
+
+        if lead_user:
+            lead_name = (
+                f"{lead_user.first_name or ''} "
+                f"{lead_user.last_name or ''}"
+            ).strip()
+
+        results.append(
+            AdminSessionSubmissionItem(
+                team_id=team.id,
+                team_name=team.name,
+
+                team_lead_user_id=(
+                    lead_user.id
+                    if lead_user
+                    else None
+                ),
+
+                team_lead_name=(
+                    lead_name or None
+                ),
+
+                submission=(
+                    TeamSubmissionDetail.model_validate(
+                        submission
+                    )
+                    if submission
+                    else None
+                ),
+            )
+        )
+
+    return results
+
+@router.get(
+    "/submissions/{submission_id}/feedback",
+    response_model=SubmissionFeedbackDetail | None,
+    summary="Get feedback for a Team submission",
+)
+def get_submission_feedback(
+    submission_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    submission = db.scalar(
+        select(TeamSubmission).where(
+            TeamSubmission.id == submission_id
+        )
+    )
+
+    if not submission:
+        raise _not_found(
+            "TeamSubmission",
+            submission_id,
+        )
+
+    feedback = db.scalar(
+        select(SubmissionFeedback).where(
+            SubmissionFeedback.submission_id
+            == submission_id
+        )
+    )
+
+    if not feedback:
+        return None
+
+    return feedback
+
+@router.put(
+    "/submissions/{submission_id}/feedback",
+    response_model=SubmissionFeedbackDetail,
+    summary="Create or update feedback for a Team submission",
+)
+def upsert_submission_feedback(
+    submission_id: UUID,
+    data: SubmissionFeedbackUpsertRequest,
+    db: Session = Depends(get_db),
+    admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    submission = db.scalar(
+        select(TeamSubmission).where(
+            TeamSubmission.id == submission_id
+        )
+    )
+
+    if not submission:
+        raise _not_found(
+            "TeamSubmission",
+            submission_id,
+        )
+
+    feedback = db.scalar(
+        select(SubmissionFeedback).where(
+            SubmissionFeedback.submission_id
+            == submission_id
+        )
+    )
+
+    feedback_text = data.feedback_text.strip()
+
+    if not feedback_text:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Feedback text cannot be empty.",
+        )
+
+    feedback_url = (
+        data.feedback_url.strip()
+        if data.feedback_url
+        else None
+    )
+
+    if feedback:
+        feedback.feedback_text = feedback_text
+        feedback.feedback_url = feedback_url
+        feedback.status = data.status
+        feedback.reviewed_by_user_id = admin.id
+
+    else:
+        feedback = SubmissionFeedback(
+            submission_id=submission_id,
+            reviewed_by_user_id=admin.id,
+            feedback_text=feedback_text,
+            feedback_url=feedback_url,
+            status=data.status,
+        )
+
+        db.add(feedback)
+
+    db.commit()
+    db.refresh(feedback)
+
+    return feedback
 @router.put(
     "/sessions/{session_id}",
     summary="Update a Session",
@@ -1536,55 +1769,351 @@ def change_team_lead(
 # RESOURCES CRUD
 # ===========================================================================
 
-@router.get("/resources", summary="List Resources (filter by phase_id)")
-def list_resources(phase_id: str | None = None, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    q = select(Resource).order_by(Resource.sequence)
+
+@router.get(
+    "/resources",
+    summary="List Resources",
+)
+def list_resources(
+    phase_id: str | None = None,
+    session_id: str | None = None,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    q = select(Resource).order_by(
+        Resource.sequence
+    )
+
     if phase_id:
-        q = q.where(Resource.phase_id == phase_id)
+        q = q.where(
+            Resource.phase_id == phase_id
+        )
+
+    if session_id:
+        q = q.where(
+            Resource.session_id == session_id
+        )
+
     resources = db.scalars(q).all()
-    return [{"id": str(r.id), "phase_id": str(r.phase_id), "title": r.title, "subtitle": r.subtitle, "resource_type": r.resource_type.value if hasattr(r.resource_type, "value") else str(r.resource_type), "url": r.url, "is_downloadable": r.is_downloadable, "is_active": r.is_active, "sequence": r.sequence} for r in resources]
+
+    return [
+        {
+            "id": str(resource.id),
+            "phase_id": str(resource.phase_id),
+
+            "session_id": (
+                str(resource.session_id)
+                if resource.session_id
+                else None
+            ),
+
+            "title": resource.title,
+            "subtitle": resource.subtitle,
+
+            "resource_type": (
+                resource.resource_type.value
+                if hasattr(
+                    resource.resource_type,
+                    "value",
+                )
+                else str(
+                    resource.resource_type
+                )
+            ),
+
+            "url": resource.url,
+
+            "is_downloadable":
+                resource.is_downloadable,
+
+            "is_active":
+                resource.is_active,
+
+            "sequence":
+                resource.sequence,
+        }
+        for resource in resources
+    ]
 
 
-@router.post("/resources", status_code=status.HTTP_201_CREATED, summary="Create a Resource")
-def create_resource(data: ResourceCreate, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    if not db.scalar(select(Phase).where(Phase.id == data.phase_id)):
-        raise _not_found("Phase", data.phase_id)
+@router.post(
+    "/resources",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a Resource",
+)
+def create_resource(
+    data: ResourceCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    phase = db.scalar(
+        select(Phase).where(
+            Phase.id == data.phase_id
+        )
+    )
+
+    if not phase:
+        raise _not_found(
+            "Phase",
+            data.phase_id,
+        )
+
+    if data.session_id:
+        session = db.scalar(
+            select(DBSession).where(
+                DBSession.id
+                == data.session_id
+            )
+        )
+
+        if not session:
+            raise _not_found(
+                "Session",
+                data.session_id,
+            )
+
+        if session.phase_id != data.phase_id:
+            raise _conflict(
+                "Resource Session must belong "
+                "to the selected Phase."
+            )
+
     payload = data.model_dump()
-    payload["resource_type"] = ResourceType(payload["resource_type"])
-    resource = Resource(**payload)
+
+    payload["resource_type"] = (
+        ResourceType(
+            payload["resource_type"]
+        )
+    )
+
+    resource = Resource(
+        **payload
+    )
+
     db.add(resource)
     db.commit()
     db.refresh(resource)
-    return {"id": str(resource.id), "title": resource.title}
+
+    return {
+        "id": str(resource.id),
+        "phase_id": str(resource.phase_id),
+
+        "session_id": (
+            str(resource.session_id)
+            if resource.session_id
+            else None
+        ),
+
+        "title": resource.title,
+
+        "resource_type": (
+            resource.resource_type.value
+        ),
+
+        "url": resource.url,
+
+        "is_active":
+            resource.is_active,
+    }
 
 
-@router.get("/resources/{resource_id}", summary="Get a Resource by ID")
-def get_resource(resource_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    resource = db.scalar(select(Resource).where(Resource.id == resource_id))
+@router.get(
+    "/resources/{resource_id}",
+    summary="Get a Resource by ID",
+)
+def get_resource(
+    resource_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    resource = db.scalar(
+        select(Resource).where(
+            Resource.id == resource_id
+        )
+    )
+
     if not resource:
-        raise _not_found("Resource", resource_id)
-    return {"id": str(resource.id), "phase_id": str(resource.phase_id), "title": resource.title, "subtitle": resource.subtitle, "resource_type": resource.resource_type.value if hasattr(resource.resource_type, "value") else str(resource.resource_type), "url": resource.url, "is_downloadable": resource.is_downloadable, "is_active": resource.is_active, "sequence": resource.sequence}
+        raise _not_found(
+            "Resource",
+            resource_id,
+        )
+
+    return {
+        "id": str(resource.id),
+        "phase_id": str(resource.phase_id),
+
+        "session_id": (
+            str(resource.session_id)
+            if resource.session_id
+            else None
+        ),
+
+        "title": resource.title,
+        "subtitle": resource.subtitle,
+
+        "resource_type": (
+            resource.resource_type.value
+            if hasattr(
+                resource.resource_type,
+                "value",
+            )
+            else str(
+                resource.resource_type
+            )
+        ),
+
+        "url": resource.url,
+
+        "is_downloadable":
+            resource.is_downloadable,
+
+        "is_active":
+            resource.is_active,
+
+        "sequence":
+            resource.sequence,
+    }
 
 
-@router.put("/resources/{resource_id}", summary="Update a Resource")
-def update_resource(resource_id: str, data: ResourceUpdate, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    resource = db.scalar(select(Resource).where(Resource.id == resource_id))
+@router.put(
+    "/resources/{resource_id}",
+    summary="Update a Resource",
+)
+def update_resource(
+    resource_id: str,
+    data: ResourceUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    resource = db.scalar(
+        select(Resource).where(
+            Resource.id == resource_id
+        )
+    )
+
     if not resource:
-        raise _not_found("Resource", resource_id)
-    updates = data.model_dump(exclude_none=True)
+        raise _not_found(
+            "Resource",
+            resource_id,
+        )
+
+    # exclude_unset is intentional:
+    # session_id=None must be allowed so Admin can
+    # move a Session Resource back to phase-level.
+    updates = data.model_dump(
+        exclude_unset=True
+    )
+
+    if "session_id" in updates:
+        new_session_id = updates[
+            "session_id"
+        ]
+
+        if new_session_id is not None:
+            session = db.scalar(
+                select(DBSession).where(
+                    DBSession.id
+                    == new_session_id
+                )
+            )
+
+            if not session:
+                raise _not_found(
+                    "Session",
+                    new_session_id,
+                )
+
+            if (
+                session.phase_id
+                != resource.phase_id
+            ):
+                raise _conflict(
+                    "Resource Session must "
+                    "belong to the Resource Phase."
+                )
+
     if "resource_type" in updates:
-        updates["resource_type"] = ResourceType(updates["resource_type"])
+        updates["resource_type"] = (
+            ResourceType(
+                updates["resource_type"]
+            )
+        )
+
     for field, value in updates.items():
-        setattr(resource, field, value)
+        setattr(
+            resource,
+            field,
+            value,
+        )
+
     db.commit()
     db.refresh(resource)
-    return {"id": str(resource.id), "title": resource.title, "is_active": resource.is_active}
+
+    return {
+        "id": str(resource.id),
+
+        "phase_id":
+            str(resource.phase_id),
+
+        "session_id": (
+            str(resource.session_id)
+            if resource.session_id
+            else None
+        ),
+
+        "title": resource.title,
+
+        "is_active":
+            resource.is_active,
+    }
 
 
-@router.delete("/resources/{resource_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a Resource")
-def delete_resource(resource_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):
-    resource = db.scalar(select(Resource).where(Resource.id == resource_id))
+@router.delete(
+    "/resources/{resource_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete a Resource",
+)
+def delete_resource(
+    resource_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    resource = db.scalar(
+        select(Resource).where(
+            Resource.id == resource_id
+        )
+    )
+
     if not resource:
-        raise _not_found("Resource", resource_id)
+        raise _not_found(
+            "Resource",
+            resource_id,
+        )
+
     db.delete(resource)
     db.commit()

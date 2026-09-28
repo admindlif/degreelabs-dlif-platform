@@ -90,6 +90,12 @@ class Team(Base):
         cascade="all, delete-orphan",
     )
 
+    submissions = relationship(
+        "TeamSubmission",
+        back_populates="team",
+        cascade="all, delete-orphan",
+    )
+
 
 class TeamMembership(Base):
     """

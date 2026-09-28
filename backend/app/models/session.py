@@ -194,3 +194,14 @@ class Session(Base):
     cohort = relationship("Cohort", back_populates="sessions")
     phase = relationship("Phase", back_populates="sessions")
     week = relationship("Week", back_populates="sessions")
+    resources = relationship(
+        "Resource",
+        back_populates="session",
+        cascade="all, delete-orphan",
+        order_by="Resource.sequence",
+    )
+    submissions = relationship(
+        "TeamSubmission",
+        back_populates="session",
+        cascade="all, delete-orphan",
+    )

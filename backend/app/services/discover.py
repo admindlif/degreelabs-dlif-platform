@@ -26,42 +26,6 @@ from app.schemas.fellow_context import CohortSummary, PhaseSummary
 
 def is_session_unlocked(
     session: DBSession,
-    *,
-    now: datetime | None = None,
-) -> bool:
-    """
-    Return True when a Fellow is allowed to access a Session.
-
-    Initial rollout rule:
-    - Sessions 0, 1 and 2 are available immediately.
-    - Session 3+ unlock according to session.unlock_at.
-    """
-
-    if session.session_number <= 2:
-        return True
-
-    if session.unlock_at is None:
-        return False
-
-    current_time = now or datetime.now(timezone.utc)
-    unlock_at = session.unlock_at
-
-    # Defensive handling for databases/test environments that may
-    # return naive datetimes.
-    if current_time.tzinfo is None:
-        current_time = current_time.replace(
-            tzinfo=timezone.utc
-        )
-
-    if unlock_at.tzinfo is None:
-        unlock_at = unlock_at.replace(
-            tzinfo=timezone.utc
-        )
-
-    return current_time >= unlock_at
-
-def is_session_unlocked(
-    session: DBSession,
 ) -> bool:
     """
     Master Session access switch.

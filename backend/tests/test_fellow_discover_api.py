@@ -28,6 +28,17 @@ from app.models.session import Session as DBSession, SessionStatus, SessionType
 from app.models.user import AccountStatus, User, UserRole
 from app.models.week import Week
 from apps.student_api.main import app as student_app
+from app.models.resource import (
+    Resource,
+    ResourceType,
+)
+from app.models.submission import TeamSubmission
+from app.models.feedback import SubmissionFeedback
+from app.models.team import (
+    Team,
+    TeamMembership,
+    TeamMemberRole,
+)
 
 
 @pytest.fixture
@@ -263,6 +274,111 @@ def setup_fellow_cohort(db: Session, fellow_user: User):
     return {"program": program, "cohort": cohort, "phase": phase, "enrollment": enrollment}
 
 
+@pytest.fixture
+def setup_submission_team(
+    db: Session,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    """
+    Create one Team with:
+    - fellow_user as Team Lead
+    - another Fellow as Team Member
+    """
+
+    cohort = setup_fellow_cohort["cohort"]
+
+    team = Team(
+        cohort_id=cohort.id,
+        name=f"Submission Team {uuid4().hex[:8]}",
+        company_name="Test Company",
+        company_challenge="Test Challenge",
+        is_active=True,
+    )
+
+    db.add(team)
+    db.flush()
+
+    lead_membership = TeamMembership(
+        team_id=team.id,
+        cohort_id=cohort.id,
+        user_id=fellow_user.id,
+        team_role=TeamMemberRole.LEAD,
+    )
+
+    db.add(lead_membership)
+
+    member_user = User(
+        first_name="Team",
+        last_name="Member",
+        email=(
+            f"team_member_"
+            f"{uuid4().hex[:8]}"
+            "@degreelabs.com"
+        ),
+        password_hash=hash_password(
+            "Pass12345!"
+        ),
+        role=UserRole.FELLOW,
+        account_status=AccountStatus.ACTIVE,
+        is_active=True,
+    )
+
+    db.add(member_user)
+    db.flush()
+
+    member_enrollment = Enrollment(
+        user_id=member_user.id,
+        cohort_id=cohort.id,
+        enrollment_status=EnrollmentStatus.ACTIVE,
+    )
+
+    db.add(member_enrollment)
+
+    member_membership = TeamMembership(
+        team_id=team.id,
+        cohort_id=cohort.id,
+        user_id=member_user.id,
+        team_role=TeamMemberRole.MEMBER,
+    )
+
+    db.add(member_membership)
+
+    db.commit()
+
+    db.refresh(team)
+    db.refresh(member_user)
+
+    yield {
+        "team": team,
+        "lead": fellow_user,
+        "member": member_user,
+        "cohort": cohort,
+    }
+
+    # Cleanup submission test data.
+    db.query(TeamSubmission).filter(
+        TeamSubmission.team_id == team.id
+    ).delete(
+        synchronize_session=False
+    )
+
+    db.query(TeamMembership).filter(
+        TeamMembership.team_id == team.id
+    ).delete(
+        synchronize_session=False
+    )
+
+    db.query(Enrollment).filter(
+        Enrollment.user_id == member_user.id
+    ).delete(
+        synchronize_session=False
+    )
+
+    db.delete(member_user)
+    db.delete(team)
+
+    db.commit()
 def test_fellow_context_success(student_client: TestClient, fellow_user: User, setup_fellow_cohort):
     token = create_access_token(subject=str(fellow_user.id), role=fellow_user.role.value)
     headers = {"Authorization": f"Bearer {token}"}
@@ -773,4 +889,1057 @@ def test_fellow_only_receives_sessions_from_active_cohort(
     db.delete(other_enrollment)
     db.delete(other_fellow)
     db.delete(other_cohort)
+    db.commit()
+
+def test_fellow_sessions_list_contains_only_active_cohort_sessions(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        "/api/v1/fellow/sessions",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert len(data) >= 13
+
+    numbers = {
+        session["session_number"]
+        for session in data
+    }
+
+    assert set(range(0, 13)).issubset(
+        numbers
+    )
+
+    db_session_ids = {
+        str(session.id)
+        for session in (
+            db.query(DBSession)
+            .filter(
+                DBSession.cohort_id == cohort.id
+            )
+            .all()
+        )
+    }
+
+    returned_ids = {
+        session["id"]
+        for session in data
+    }
+
+    assert returned_ids.issubset(
+        db_session_ids
+    )
+
+    session_3 = next(
+        session
+        for session in data
+        if session["session_number"] == 3
+    )
+
+    assert session_3["is_unlocked"] is False
+    assert session_3["title"] == "Session 3"
+    assert session_3["meeting_url"] is None
+def test_unlocked_session_returns_only_its_resources(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+    phase = setup_fellow_cohort["phase"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 2,
+        )
+        .one()
+    )
+
+    session.is_unlocked = True
+
+    session_resource = Resource(
+        phase_id=phase.id,
+        session_id=session.id,
+        title="Session 2 Presentation",
+        resource_type=ResourceType.LINK,
+        url="https://drive.google.com/session-2",
+        is_active=True,
+        sequence=1,
+    )
+
+    global_resource = Resource(
+        phase_id=phase.id,
+        session_id=None,
+        title="Global Fellow Handbook",
+        resource_type=ResourceType.HANDBOOK,
+        url="https://drive.google.com/handbook",
+        is_active=True,
+        sequence=1,
+    )
+
+    db.add_all(
+        [
+            session_resource,
+            global_resource,
+        ]
+    )
+
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    response = student_client.get(
+        (
+            f"/api/v1/fellow/sessions/"
+            f"{session.id}/resources"
+        ),
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    titles = {
+        item["title"]
+        for item in data
+    }
+
+    assert "Session 2 Presentation" in titles
+    assert "Global Fellow Handbook" not in titles
+
+    db.delete(session_resource)
+    db.delete(global_resource)
+    db.commit()
+
+
+def test_locked_session_resources_are_forbidden(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+    phase = setup_fellow_cohort["phase"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 3,
+        )
+        .one()
+    )
+
+    session.is_unlocked = False
+    session.unlock_at = None
+
+    protected_resource = Resource(
+        phase_id=phase.id,
+        session_id=session.id,
+        title="Secret Session 3 Resource",
+        resource_type=ResourceType.LINK,
+        url="https://drive.google.com/secret",
+        is_active=True,
+        sequence=1,
+    )
+
+    db.add(protected_resource)
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    response = student_client.get(
+        (
+            f"/api/v1/fellow/sessions/"
+            f"{session.id}/resources"
+        ),
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 403
+
+    db.delete(protected_resource)
+    db.commit()
+
+
+def test_phase_toolkit_excludes_session_resources(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+    phase = setup_fellow_cohort["phase"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 1,
+        )
+        .one()
+    )
+
+    session_resource = Resource(
+        phase_id=phase.id,
+        session_id=session.id,
+        title="Session Only Resource",
+        resource_type=ResourceType.LINK,
+        url="https://drive.google.com/session-only",
+        is_active=True,
+        sequence=99,
+    )
+
+    db.add(session_resource)
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    response = student_client.get(
+        "/api/v1/fellow/resources",
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 200
+
+    titles = {
+        item["title"]
+        for item in response.json()
+    }
+
+    assert "Session Only Resource" not in titles
+
+    db.delete(session_resource)
+    db.commit()
+
+def test_team_lead_can_submit_and_resubmit(
+    db: Session,
+    student_client: TestClient,
+    setup_submission_team,
+):
+    lead = setup_submission_team["lead"]
+    cohort = setup_submission_team["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 1,
+        )
+        .one()
+    )
+
+    # Submission must be enabled and Session unlocked.
+    session.is_unlocked = True
+    session.submission_enabled = True
+    db.commit()
+
+    token = create_access_token(
+        subject=str(lead.id),
+        role=lead.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    # -----------------------------
+    # First submission
+    # -----------------------------
+    response = student_client.put(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=headers,
+        json={
+            "drive_url": (
+                "https://drive.google.com/"
+                "first-submission"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["is_team_lead"] is True
+    assert data["can_submit"] is True
+
+    assert (
+        data["submission"]["drive_url"]
+        == "https://drive.google.com/first-submission"
+    )
+
+    submission_id = data["submission"]["id"]
+
+    # -----------------------------
+    # Resubmission
+    # -----------------------------
+    response = student_client.put(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=headers,
+        json={
+            "drive_url": (
+                "https://drive.google.com/"
+                "updated-submission"
+            )
+        },
+    )
+
+    assert response.status_code == 200
+
+    updated = response.json()
+
+    # Same DB record should be updated.
+    assert (
+        updated["submission"]["id"]
+        == submission_id
+    )
+
+    assert (
+        updated["submission"]["drive_url"]
+        == "https://drive.google.com/updated-submission"
+    )
+
+    # Only one Team submission should exist.
+    assert (
+        db.query(TeamSubmission)
+        .filter(
+            TeamSubmission.team_id
+            == setup_submission_team["team"].id,
+            TeamSubmission.session_id
+            == session.id,
+        )
+        .count()
+        == 1
+    )
+
+def test_team_member_can_view_but_cannot_submit(
+    db: Session,
+    student_client: TestClient,
+    setup_submission_team,
+):
+    lead = setup_submission_team["lead"]
+    member = setup_submission_team["member"]
+    cohort = setup_submission_team["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 1,
+        )
+        .one()
+    )
+
+    session.is_unlocked = True
+    session.submission_enabled = True
+    db.commit()
+
+    # --------------------------------------------------
+    # Team Lead creates the Team submission first.
+    # --------------------------------------------------
+    lead_token = create_access_token(
+        subject=str(lead.id),
+        role=lead.role.value,
+    )
+
+    lead_headers = {
+        "Authorization": f"Bearer {lead_token}"
+    }
+
+    lead_response = student_client.put(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=lead_headers,
+        json={
+            "drive_url": (
+                "https://drive.google.com/"
+                "team-submission"
+            )
+        },
+    )
+
+    assert lead_response.status_code == 200
+
+    # --------------------------------------------------
+    # Normal Team Member can VIEW it.
+    # --------------------------------------------------
+    member_token = create_access_token(
+        subject=str(member.id),
+        role=member.role.value,
+    )
+
+    member_headers = {
+        "Authorization": f"Bearer {member_token}"
+    }
+
+    response = student_client.get(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=member_headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["is_team_lead"] is False
+    assert data["can_submit"] is False
+
+    assert (
+        data["submission"]["drive_url"]
+        == "https://drive.google.com/team-submission"
+    )
+
+    # --------------------------------------------------
+    # Normal Team Member cannot SUBMIT.
+    # --------------------------------------------------
+    response = student_client.put(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=member_headers,
+        json={
+            "drive_url": (
+                "https://drive.google.com/"
+                "member-should-not-submit"
+            )
+        },
+    )
+
+    assert response.status_code == 403
+
+    assert (
+        "team lead"
+        in response.json()["detail"].lower()
+    )
+
+def test_locked_session_submission_is_forbidden(
+    db: Session,
+    student_client: TestClient,
+    setup_submission_team,
+):
+    lead = setup_submission_team["lead"]
+    cohort = setup_submission_team["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 3,
+        )
+        .one()
+    )
+
+    session.is_unlocked = False
+    session.unlock_at = None
+    session.submission_enabled = True
+    db.commit()
+
+    token = create_access_token(
+        subject=str(lead.id),
+        role=lead.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.get(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=headers,
+    )
+
+    assert response.status_code == 403
+
+    assert (
+        "locked"
+        in response.json()["detail"].lower()
+    )
+
+    response = student_client.put(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=headers,
+        json={
+            "drive_url": (
+                "https://drive.google.com/"
+                "should-not-submit"
+            )
+        },
+    )
+
+    assert response.status_code == 403
+
+def test_submission_disabled_rejects_team_lead_submit(
+    db: Session,
+    student_client: TestClient,
+    setup_submission_team,
+):
+    lead = setup_submission_team["lead"]
+    cohort = setup_submission_team["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 1,
+        )
+        .one()
+    )
+
+    session.is_unlocked = True
+    session.submission_enabled = False
+    db.commit()
+
+    token = create_access_token(
+        subject=str(lead.id),
+        role=lead.role.value,
+    )
+
+    headers = {
+        "Authorization": f"Bearer {token}"
+    }
+
+    response = student_client.put(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=headers,
+        json={
+            "drive_url": (
+                "https://drive.google.com/"
+                "should-not-submit"
+            )
+        },
+    )
+
+    assert response.status_code == 403
+
+    assert (
+        "not enabled"
+        in response.json()["detail"].lower()
+    )
+
+    # Viewing the submission area is still allowed
+    # because the Session itself is unlocked.
+    response = student_client.get(
+        f"/api/v1/fellow/sessions/{session.id}/submission",
+        headers=headers,
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["can_submit"] is False
+
+# ===========================================================================
+# FEEDBACK TESTS
+# ===========================================================================
+
+
+@pytest.fixture
+def setup_feedback_submission(
+    db: Session,
+    setup_submission_team,
+):
+    """
+    Create one Team submission for Session 1
+    which can then be reviewed by Admin.
+    """
+
+    team = setup_submission_team["team"]
+    lead = setup_submission_team["lead"]
+    member = setup_submission_team["member"]
+    cohort = setup_submission_team["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 1,
+        )
+        .one()
+    )
+
+    session.is_unlocked = True
+    session.submission_enabled = True
+
+    submission = TeamSubmission(
+        session_id=session.id,
+        team_id=team.id,
+        submitted_by_user_id=lead.id,
+        drive_url=(
+            "https://drive.google.com/"
+            "feedback-test-submission"
+        ),
+    )
+
+    db.add(submission)
+    db.commit()
+    db.refresh(submission)
+
+    yield {
+        "team": team,
+        "lead": lead,
+        "member": member,
+        "cohort": cohort,
+        "session": session,
+        "submission": submission,
+    }
+
+    # Explicit feedback cleanup first.
+    db.query(SubmissionFeedback).filter(
+        SubmissionFeedback.submission_id
+        == submission.id
+    ).delete(
+        synchronize_session=False
+    )
+
+    db.query(TeamSubmission).filter(
+        TeamSubmission.id == submission.id
+    ).delete(
+        synchronize_session=False
+    )
+
+    db.commit()
+
+def test_admin_can_create_and_update_submission_feedback(
+    db: Session,
+    client: TestClient,
+    admin_headers: dict[str, str],
+    setup_feedback_submission,
+):
+    submission = (
+        setup_feedback_submission[
+            "submission"
+        ]
+    )
+
+    # --------------------------------------------------
+    # First review: Revision Required
+    # --------------------------------------------------
+    response = client.put(
+        (
+            f"/api/v1/admin/submissions/"
+            f"{submission.id}/feedback"
+        ),
+        headers=admin_headers,
+        json={
+            "feedback_text": (
+                "Please refine the evidence "
+                "and update the working board."
+            ),
+            "feedback_url": (
+                "https://drive.google.com/"
+                "feedback-reference"
+            ),
+            "status": "revision_required",
+        },
+    )
+
+    assert response.status_code == 200
+
+    first = response.json()
+
+    assert (
+        first["submission_id"]
+        == str(submission.id)
+    )
+
+    assert (
+        first["status"]
+        == "revision_required"
+    )
+
+    feedback_id = first["id"]
+
+    # --------------------------------------------------
+    # Update same review: Accepted
+    # --------------------------------------------------
+    response = client.put(
+        (
+            f"/api/v1/admin/submissions/"
+            f"{submission.id}/feedback"
+        ),
+        headers=admin_headers,
+        json={
+            "feedback_text": (
+                "Updated submission accepted."
+            ),
+            "feedback_url": None,
+            "status": "accepted",
+        },
+    )
+
+    assert response.status_code == 200
+
+    updated = response.json()
+
+    # Same feedback row must be updated.
+    assert updated["id"] == feedback_id
+
+    assert (
+        updated["status"]
+        == "accepted"
+    )
+
+    assert (
+        updated["feedback_text"]
+        == "Updated submission accepted."
+    )
+
+    # There must still be exactly one feedback row.
+    assert (
+        db.query(SubmissionFeedback)
+        .filter(
+            SubmissionFeedback.submission_id
+            == submission.id
+        )
+        .count()
+        == 1
+    )
+
+def test_team_lead_can_read_submission_feedback(
+    db: Session,
+    student_client: TestClient,
+    setup_feedback_submission,
+):
+    lead = setup_feedback_submission["lead"]
+    session = setup_feedback_submission["session"]
+    submission = (
+        setup_feedback_submission[
+            "submission"
+        ]
+    )
+
+    feedback = SubmissionFeedback(
+        submission_id=submission.id,
+        reviewed_by_user_id=None,
+        feedback_text=(
+            "Please strengthen the evidence."
+        ),
+        feedback_url=(
+            "https://drive.google.com/"
+            "lead-feedback"
+        ),
+        status="revision_required",
+    )
+
+    db.add(feedback)
+    db.commit()
+
+    token = create_access_token(
+        subject=str(lead.id),
+        role=lead.role.value,
+    )
+
+    response = student_client.get(
+        (
+            f"/api/v1/fellow/sessions/"
+            f"{session.id}/feedback"
+        ),
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data is not None
+
+    assert (
+        data["feedback_text"]
+        == "Please strengthen the evidence."
+    )
+
+    assert (
+        data["status"]
+        == "revision_required"
+    )
+
+    assert (
+        data["feedback_url"]
+        == (
+            "https://drive.google.com/"
+            "lead-feedback"
+        )
+    )
+def test_team_member_can_read_submission_feedback(
+    db: Session,
+    student_client: TestClient,
+    setup_feedback_submission,
+):
+    member = setup_feedback_submission[
+        "member"
+    ]
+
+    session = setup_feedback_submission[
+        "session"
+    ]
+
+    submission = setup_feedback_submission[
+        "submission"
+    ]
+
+    feedback = SubmissionFeedback(
+        submission_id=submission.id,
+        reviewed_by_user_id=None,
+        feedback_text=(
+            "The Team submission is accepted."
+        ),
+        feedback_url=None,
+        status="accepted",
+    )
+
+    db.add(feedback)
+    db.commit()
+
+    token = create_access_token(
+        subject=str(member.id),
+        role=member.role.value,
+    )
+
+    response = student_client.get(
+        (
+            f"/api/v1/fellow/sessions/"
+            f"{session.id}/feedback"
+        ),
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data is not None
+
+    assert (
+        data["feedback_text"]
+        == "The Team submission is accepted."
+    )
+
+    assert data["status"] == "accepted"
+def test_other_team_cannot_read_submission_feedback(
+    db: Session,
+    student_client: TestClient,
+    setup_feedback_submission,
+):
+    cohort = setup_feedback_submission[
+        "cohort"
+    ]
+
+    session = setup_feedback_submission[
+        "session"
+    ]
+
+    submission = setup_feedback_submission[
+        "submission"
+    ]
+
+    feedback = SubmissionFeedback(
+        submission_id=submission.id,
+        reviewed_by_user_id=None,
+        feedback_text=(
+            "PRIVATE TEAM ALPHA FEEDBACK"
+        ),
+        feedback_url=None,
+        status="revision_required",
+    )
+
+    db.add(feedback)
+
+    # --------------------------------------------------
+    # Create another Fellow in the SAME Cohort
+    # but place them in a different Team.
+    # --------------------------------------------------
+    other_fellow = User(
+        first_name="Other",
+        last_name="Team Fellow",
+        email=(
+            f"other_team_"
+            f"{uuid4().hex[:8]}"
+            "@degreelabs.com"
+        ),
+        password_hash=hash_password(
+            "Pass12345!"
+        ),
+        role=UserRole.FELLOW,
+        account_status=AccountStatus.ACTIVE,
+        is_active=True,
+    )
+
+    db.add(other_fellow)
+    db.flush()
+
+    other_enrollment = Enrollment(
+        user_id=other_fellow.id,
+        cohort_id=cohort.id,
+        enrollment_status=(
+            EnrollmentStatus.ACTIVE
+        ),
+    )
+
+    db.add(other_enrollment)
+
+    other_team = Team(
+        cohort_id=cohort.id,
+        name=(
+            f"Other Team "
+            f"{uuid4().hex[:6]}"
+        ),
+        company_name="Other Company",
+        company_challenge="Other Challenge",
+        is_active=True,
+    )
+
+    db.add(other_team)
+    db.flush()
+
+    other_membership = TeamMembership(
+        team_id=other_team.id,
+        cohort_id=cohort.id,
+        user_id=other_fellow.id,
+        team_role=TeamMemberRole.MEMBER,
+    )
+
+    db.add(other_membership)
+    db.commit()
+
+    token = create_access_token(
+        subject=str(other_fellow.id),
+        role=other_fellow.role.value,
+    )
+
+    response = student_client.get(
+        (
+            f"/api/v1/fellow/sessions/"
+            f"{session.id}/feedback"
+        ),
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 200
+
+    # Fellow belongs to a different Team,
+    # therefore Team Alpha feedback must not leak.
+    assert response.json() is None
+
+    # Cleanup
+    db.delete(other_membership)
+    db.delete(other_enrollment)
+    db.delete(other_fellow)
+    db.delete(other_team)
+
+    db.commit()
+def test_locked_session_feedback_is_forbidden(
+    db: Session,
+    student_client: TestClient,
+    setup_submission_team,
+):
+    lead = setup_submission_team["lead"]
+    team = setup_submission_team["team"]
+    cohort = setup_submission_team["cohort"]
+
+    session = (
+        db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.session_number == 3,
+        )
+        .one()
+    )
+
+    session.is_unlocked = False
+    session.unlock_at = None
+
+    # Create protected data directly in DB.
+    # We intentionally bypass Fellow submission
+    # because a locked Session would reject it.
+    submission = TeamSubmission(
+        session_id=session.id,
+        team_id=team.id,
+        submitted_by_user_id=lead.id,
+        drive_url=(
+            "https://drive.google.com/"
+            "locked-submission"
+        ),
+    )
+
+    db.add(submission)
+    db.flush()
+
+    feedback = SubmissionFeedback(
+        submission_id=submission.id,
+        reviewed_by_user_id=None,
+        feedback_text=(
+            "SECRET LOCKED FEEDBACK"
+        ),
+        feedback_url=None,
+        status="revision_required",
+    )
+
+    db.add(feedback)
+    db.commit()
+
+    token = create_access_token(
+        subject=str(lead.id),
+        role=lead.role.value,
+    )
+
+    response = student_client.get(
+        (
+            f"/api/v1/fellow/sessions/"
+            f"{session.id}/feedback"
+        ),
+        headers={
+            "Authorization": f"Bearer {token}"
+        },
+    )
+
+    assert response.status_code == 403
+
+    assert (
+        "locked"
+        in response.json()["detail"].lower()
+    )
+
+    db.delete(feedback)
+    db.delete(submission)
     db.commit()

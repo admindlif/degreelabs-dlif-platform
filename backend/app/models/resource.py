@@ -47,6 +47,13 @@ class Resource(Base):
         index=True,
     )
 
+    session_id: Mapped[UUID | None] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("sessions.id", ondelete="CASCADE"),
+        nullable=True,
+        index=True,
+    )
+
     title: Mapped[str] = mapped_column(
         String(300),
         nullable=False,
@@ -105,3 +112,4 @@ class Resource(Base):
 
     # Relationships
     phase = relationship("Phase", back_populates="resources")
+    session = relationship("Session", back_populates="resources")

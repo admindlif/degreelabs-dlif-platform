@@ -74,6 +74,14 @@ export function SessionModal({
   const [recordingUrl, setRecordingUrl] = React.useState(
     session?.recording_url ?? ""
   );
+  const [transcriptUrl, setTranscriptUrl] = React.useState(
+    session?.transcript_url ?? ""
+  );
+
+  const [submissionEnabled, setSubmissionEnabled] =
+    React.useState(
+      session?.submission_enabled ?? false
+    );
 
   const [status, setStatus] = React.useState(
     session?.status ?? "scheduled"
@@ -111,6 +119,8 @@ export function SessionModal({
             ? new Date(endAt).toISOString()
             : undefined,
           recording_url: recordingUrl.trim() || undefined,
+          transcript_url: transcriptUrl.trim() || undefined,
+          submission_enabled: submissionEnabled,
           status,
           sequence: Number(sequence),
         });
@@ -126,6 +136,8 @@ export function SessionModal({
           start_at: new Date(startAt).toISOString(),
           end_at: new Date(endAt).toISOString(),
           recording_url: recordingUrl.trim() || undefined,
+          transcript_url: transcriptUrl.trim() || undefined,
+          submission_enabled: submissionEnabled,
           status,
           sequence: Number(sequence),
         });
@@ -359,6 +371,44 @@ export function SessionModal({
               placeholder="https://drive.google.com/..."
               className="w-full px-3 py-2.5 rounded-xl border"
             />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Transcript URL
+            </label>
+
+            <input
+              value={transcriptUrl}
+              onChange={(e) => setTranscriptUrl(e.target.value)}
+              placeholder="https://drive.google.com/..."
+              className="w-full px-3 py-2.5 rounded-xl border"
+            />
+          </div>
+
+          <div className="flex items-center gap-3 rounded-xl border p-4">
+            <input
+              id="submission-enabled"
+              type="checkbox"
+              checked={submissionEnabled}
+              onChange={(e) =>
+                setSubmissionEnabled(e.target.checked)
+              }
+              className="h-4 w-4"
+            />
+
+            <div>
+              <label
+                htmlFor="submission-enabled"
+                className="text-sm font-bold cursor-pointer"
+              >
+                Enable Team Submission
+              </label>
+
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Allow the Team Lead to submit or resubmit a Google Drive link for this Session.
+              </p>
+            </div>
           </div>
 
           <div>

@@ -318,41 +318,86 @@ class TeamDetailResponse(TeamResponse):
 # ---------------------------------------------------------------------------
 
 
+# ---------------------------------------------------------------------------
+# Resources
+# ---------------------------------------------------------------------------
+
+
 class ResourceCreate(BaseModel):
     phase_id: UUID
+    session_id: Optional[UUID] = None
+
     title: str = Field(..., max_length=300)
     subtitle: Optional[str] = Field(None, max_length=300)
+
     resource_type: str = "link"
-    url: Optional[str] = Field(None, max_length=1000)
+
+    url: Optional[str] = Field(
+        None,
+        max_length=1000,
+    )
+
     is_downloadable: bool = False
     is_active: bool = True
-    sequence: int = Field(0, ge=0)
+
+    sequence: int = Field(
+        0,
+        ge=0,
+    )
 
 
 class ResourceUpdate(BaseModel):
-    title: Optional[str] = Field(None, max_length=300)
-    subtitle: Optional[str] = Field(None, max_length=300)
+    session_id: Optional[UUID] = None
+
+    title: Optional[str] = Field(
+        None,
+        max_length=300,
+    )
+
+    subtitle: Optional[str] = Field(
+        None,
+        max_length=300,
+    )
+
     resource_type: Optional[str] = None
-    url: Optional[str] = Field(None, max_length=1000)
+
+    url: Optional[str] = Field(
+        None,
+        max_length=1000,
+    )
+
     is_downloadable: Optional[bool] = None
     is_active: Optional[bool] = None
-    sequence: Optional[int] = Field(None, ge=0)
+
+    sequence: Optional[int] = Field(
+        None,
+        ge=0,
+    )
 
 
 class ResourceResponse(BaseModel):
     id: UUID
+
     phase_id: UUID
+    session_id: Optional[UUID] = None
+
     title: str
     subtitle: Optional[str]
+
     resource_type: str
     url: Optional[str]
+
     is_downloadable: bool
     is_active: bool
+
     sequence: int
+
     created_at: datetime
     updated_at: datetime
 
-    model_config = {"from_attributes": True}
+    model_config = {
+        "from_attributes": True
+    }
 
 
 # ---------------------------------------------------------------------------

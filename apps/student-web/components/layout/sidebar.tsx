@@ -6,17 +6,16 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
   Compass,
-  Calendar,
-  FileCheck,
-  FolderGit2,
   Users,
-  UserCheck,
   Bell,
   ShieldCheck,
-  ChevronRight,
   LogOut,
-  Sparkles,
+  LockKeyhole,
+  Circle,
 } from "lucide-react";
+
+import { getFellowSessions } from "@/lib/api/discover";
+import { SessionSummary } from "@/lib/api/types";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/lib/auth-context";
@@ -25,42 +24,112 @@ interface SidebarProps {
   className?: string;
 }
 
+function SessionSidebarItem({
+  session,
+}: {
+  session: SessionSummary;
+}) {
+  const locked = !session.is_unlocked;
+
+  if (locked) {
+    return (
+      <div
+        className="
+          flex items-center justify-between
+          px-3 py-2 rounded-lg
+          text-xs
+          text-[var(--color-text-muted)]
+          cursor-not-allowed
+        "
+      >
+        <div className="flex items-center gap-2">
+          <LockKeyhole className="w-3.5 h-3.5" />
+
+          <span>
+            Session {session.session_number}
+          </span>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/sessions/${session.id}`}
+      className="
+        flex items-center gap-2
+        px-3 py-2 rounded-lg
+        text-xs font-semibold
+        text-[var(--color-text-body)]
+        hover:bg-[var(--color-bg-subtle)]
+        hover:text-[var(--color-text-primary)]
+        transition-colors
+      "
+    >
+      <Circle className="w-2.5 h-2.5 fill-current text-[var(--color-brand-orange)]" />
+
+      <div className="min-w-0">
+        <div>
+          Session {session.session_number}
+        </div>
+
+        <div className="text-[10px] font-normal truncate text-[var(--color-text-muted)]">
+          {session.title}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
 export function Sidebar({ className }: SidebarProps) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
+  const [sessions, setSessions] =
+    React.useState<SessionSummary[]>([]);
+
+  React.useEffect(() => {
+    getFellowSessions()
+      .then(setSessions)
+      .catch((error) => {
+        console.warn(
+          "Unable to load sidebar sessions:",
+          error
+        );
+      });
+  }, []);
+
+  const induction = sessions.find(
+    (session) => session.session_number === 0
+  );
+
+  const sessionsByWeek = {
+    1: sessions.filter(
+      (session) =>
+        session.session_number >= 1 &&
+        session.session_number <= 3
+    ),
+
+    2: sessions.filter(
+      (session) =>
+        session.session_number >= 4 &&
+        session.session_number <= 6
+    ),
+
+    3: sessions.filter(
+      (session) =>
+        session.session_number >= 7 &&
+        session.session_number <= 9
+    ),
+
+    4: sessions.filter(
+      (session) =>
+        session.session_number >= 10 &&
+        session.session_number <= 12
+    ),
+  };
+
   const navigationGroups = [
-    {
-      title: "Learning Path",
-      items: [
-        {
-          name: "DISCOVER",
-          href: "/",
-          icon: Compass,
-          badge: "4 Weeks",
-          badgeVariant: "brand" as const,
-        },
-        {
-          name: "My Sessions",
-          href: "/sessions",
-          icon: Calendar,
-          badge: "Next: Thu",
-          badgeVariant: "muted" as const,
-        },
-        {
-          name: "Weekly Outputs",
-          href: "/assignments",
-          icon: FileCheck,
-          badge: "1 Due",
-          badgeVariant: "gold" as const,
-        },
-        {
-          name: "Resources",
-          href: "/resources",
-          icon: FolderGit2,
-        },
-      ],
-    },
     {
       title: "Collaboration",
       items: [
@@ -91,6 +160,7 @@ export function Sidebar({ className }: SidebarProps) {
       ],
     },
   ];
+
 
   return (
     <aside
@@ -132,6 +202,59 @@ export function Sidebar({ className }: SidebarProps) {
 
       {/* Navigation Sections */}
       <div className="flex-1 overflow-y-auto px-3 py-3 space-y-6">
+        {/* DISCOVER Session Navigation */}
+        <div className="space-y-5">
+          <div>
+            <Link
+              href="/"
+              className={cn(
+                "flex items-center gap-2.5 px-3 py-2 rounded-xl text-sm font-bold",
+                pathname === "/"
+                  ? "bg-[var(--color-bg-subtle)] text-[var(--color-text-primary)]"
+                  : "text-[var(--color-text-body)] hover:bg-[var(--color-bg-subtle)]"
+              )}
+            >
+              <Compass className="w-4 h-4 text-[var(--color-brand-orange)]" />
+              DISCOVER
+            </Link>
+          </div>
+
+          {induction && (
+            <div className="space-y-1">
+              <h4 className="px-3 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+                Induction
+              </h4>
+
+              <SessionSidebarItem
+                session={induction}
+              />
+            </div>
+          )}
+
+          {([1, 2, 3, 4] as const).map(
+            (weekNumber) => (
+              <div
+                key={weekNumber}
+                className="space-y-1"
+              >
+                <h4 className="px-3 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+                  Week {weekNumber}
+                </h4>
+
+                <div className="space-y-0.5">
+                  {sessionsByWeek[
+                    weekNumber
+                  ].map((session) => (
+                    <SessionSidebarItem
+                      key={session.id}
+                      session={session}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          )}
+        </div>
         {navigationGroups.map((group) => (
           <div key={group.title} className="space-y-1">
             <h4 className="px-3 text-[11px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
