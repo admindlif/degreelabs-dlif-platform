@@ -900,6 +900,164 @@ def test_session_creation_saves_google_calendar_metadata_and_lock_state(
             users=[fellow],
             programs=[program],
         )
+
+def test_session_update_creates_first_calendar_event(
+    db: Session,
+    admin_user: User,
+    monkeypatch,
+):
+    program = create_program(db)
+
+    cohort = create_cohort(
+        db,
+        program,
+        "UPDATE-FIRST-CALENDAR",
+    )
+
+    phase = create_phase(
+        db,
+        program,
+    )
+
+    fellow = create_fellow(
+        db,
+        cohort,
+        "update-first-calendar",
+    )
+
+    session = create_test_session(
+        db,
+        cohort,
+        phase,
+        session_number=0,
+    )
+
+    # Initialized canonical Session has no schedule
+    # and no Calendar/Meet metadata yet.
+    assert session.start_at is None
+    assert session.end_at is None
+    assert session.google_calendar_event_id is None
+    assert session.meeting_url is None
+
+    captured = {}
+
+    def fake_create_calendar_event_with_meet(
+        *,
+        title,
+        description,
+        start_at,
+        end_at,
+        attendee_emails,
+    ):
+        captured["title"] = title
+        captured["start_at"] = start_at
+        captured["end_at"] = end_at
+        captured["attendee_emails"] = attendee_emails
+
+        return {
+            "event_id": "first-event-123",
+            "calendar_url": (
+                "https://calendar.google.com/"
+                "first-event-123"
+            ),
+            "meeting_url": (
+                "https://meet.google.com/"
+                "first-meet-123"
+            ),
+            "meeting_code": "first-meet-123",
+        }
+
+    def fail_update_calendar_event(**kwargs):
+        pytest.fail(
+            "update_calendar_event must not be called "
+            "when no Calendar event exists."
+        )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin."
+        "create_calendar_event_with_meet",
+        fake_create_calendar_event_with_meet,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.update_calendar_event",
+        fail_update_calendar_event,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin.settings."
+        "google_calendar_enabled",
+        True,
+    )
+
+    start_at = (
+        datetime.now(timezone.utc)
+        + timedelta(days=1)
+    )
+
+    try:
+        result = update_session_route(
+            session_id=str(session.id),
+            data=SessionUpdate(
+                start_at=start_at,
+                end_at=(
+                    start_at
+                    + timedelta(hours=2)
+                ),
+            ),
+            db=db,
+            _admin=admin_user,
+        )
+
+        assert result["meeting_url"] == (
+            "https://meet.google.com/"
+            "first-meet-123"
+        )
+
+        assert (
+            result["google_calendar_event_id"]
+            == "first-event-123"
+        )
+
+        assert captured["attendee_emails"] == [
+            fellow.email
+        ]
+
+        db.refresh(session)
+
+        assert (
+            session.meeting_provider
+            == "google_calendar"
+        )
+
+        assert (
+            session.google_calendar_event_id
+            == "first-event-123"
+        )
+
+        assert (
+            session.google_calendar_event_url
+            == "https://calendar.google.com/"
+            "first-event-123"
+        )
+
+        assert (
+            session.meeting_url
+            == "https://meet.google.com/"
+            "first-meet-123"
+        )
+
+        assert (
+            session.google_meet_code
+            == "first-meet-123"
+        )
+
+    finally:
+        cleanup(
+            db,
+            users=[fellow],
+            programs=[program],
+        )
 def test_session_update_updates_existing_calendar_event(
     db: Session,
     admin_user: User,
@@ -1004,6 +1162,12 @@ def test_session_update_updates_existing_calendar_event(
             "meeting_code": "original-meet",
         }
 
+    def fail_create_calendar_event(**kwargs):
+        pytest.fail(
+            "create_calendar_event_with_meet must not "
+            "be called when a Calendar event already exists."
+        )
+
     monkeypatch.setattr(
         "app.api.routes.admin.update_calendar_event",
         fake_update_calendar_event,
@@ -1012,6 +1176,12 @@ def test_session_update_updates_existing_calendar_event(
     monkeypatch.setattr(
         "app.api.routes.admin.settings.google_calendar_enabled",
         True,
+    )
+
+    monkeypatch.setattr(
+        "app.api.routes.admin."
+        "create_calendar_event_with_meet",
+        fail_create_calendar_event,
     )
 
     updated_start = (

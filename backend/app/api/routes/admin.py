@@ -1494,19 +1494,17 @@ def update_session(
     )
 
     try:
+        if not settings.google_calendar_enabled:
+            raise RuntimeError(
+                "Google Calendar integration "
+                "is disabled."
+            )
+
         # Existing Calendar-backed Session:
         # update the same event instead of creating another.
         if session.google_calendar_event_id:
-            if not settings.google_calendar_enabled:
-                raise RuntimeError(
-                    "Google Calendar integration "
-                    "is disabled."
-                )
-
             calendar_event = update_calendar_event(
-                event_id=(
-                    session.google_calendar_event_id
-                ),
+                event_id=session.google_calendar_event_id,
                 title=session.title,
                 description=session.description,
                 start_at=session.start_at,
@@ -1529,11 +1527,41 @@ def update_session(
                 or session.google_calendar_event_url
             )
 
+        # Canonical/initialized Session:
+        # create its first Calendar event + Google Meet.
+        else:
+            calendar_event = create_calendar_event_with_meet(
+                title=session.title,
+                description=session.description,
+                start_at=session.start_at,
+                end_at=session.end_at,
+                attendee_emails=attendee_emails,
+            )
+
+            session.meeting_provider = "google_calendar"
+
+            session.meeting_url = (
+                calendar_event["meeting_url"]
+            )
+
+            session.google_meet_code = (
+                calendar_event["meeting_code"]
+            )
+
+            session.google_calendar_event_id = (
+                calendar_event["event_id"]
+            )
+
+            session.google_calendar_event_url = (
+                calendar_event["calendar_url"]
+            )
+
         db.commit()
         db.refresh(session)
 
     except Exception as exc:
         db.rollback()
+
         logger.exception(
             "Google Calendar event update failed for session_id=%s",
             session.id,
@@ -1541,7 +1569,10 @@ def update_session(
 
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail="Unable to update the Session and Google Calendar event.",
+            detail=(
+                "Unable to update the Session "
+                "and Google Calendar event."
+            ),
         ) from exc
 
     return {
