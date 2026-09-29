@@ -69,7 +69,7 @@ class Session(Base):
     session_number: Mapped[int] = mapped_column(
         Integer,
         nullable=False,
-    )  # 0 for induction, 1..12
+    )  # 0 for induction; 1+ includes canonical and Admin-added Sessions
 
     session_type: Mapped[SessionType] = mapped_column(
         SQLEnum(

@@ -16,6 +16,7 @@ interface SessionModalProps {
   cohorts: AdminCohort[];
   phases: AdminPhase[];
   weeks: AdminWeek[];
+  sessions: AdminSession[];
   onClose: () => void;
   onSaved: () => Promise<void> | void;
 }
@@ -44,6 +45,7 @@ export function SessionModal({
   cohorts,
   phases,
   weeks,
+  sessions,
   onClose,
   onSaved,
 }: SessionModalProps) {
@@ -58,6 +60,19 @@ export function SessionModal({
       (phase) => phase.program_id === initialCohort?.program_id
     )?.id ??
     "";
+  const initialCohortSessions = sessions.filter(
+    (item) => item.cohort_id === initialCohortId
+  );
+  const initialSessionNumber =
+    initialCohortSessions.reduce(
+      (maximum, item) => Math.max(maximum, item.session_number),
+      -1
+    ) + 1;
+  const initialSequence =
+    initialCohortSessions.reduce(
+      (maximum, item) => Math.max(maximum, item.sequence),
+      -1
+    ) + 1;
 
   const [cohortId, setCohortId] = React.useState(
     initialCohortId
@@ -72,7 +87,7 @@ export function SessionModal({
   );
 
   const [sessionNumber, setSessionNumber] = React.useState(
-    session?.session_number ?? 0
+    session?.session_number ?? initialSessionNumber
   );
 
   const [sessionType, setSessionType] = React.useState(
@@ -117,7 +132,7 @@ export function SessionModal({
   );
 
   const [sequence, setSequence] = React.useState(
-    session?.sequence ?? 0
+    session?.sequence ?? initialSequence
   );
 
   const [saving, setSaving] = React.useState(false);
@@ -137,6 +152,18 @@ export function SessionModal({
   const filteredWeeks = selectedPhase
     ? weeks.filter((week) => week.phase_id === selectedPhase.id)
     : [];
+  const conflictingSessionNumber = sessions.find(
+    (item) =>
+      item.cohort_id === cohortId &&
+      item.id !== session?.id &&
+      item.session_number === Number(sessionNumber)
+  );
+  const conflictingSequence = sessions.find(
+    (item) =>
+      item.cohort_id === cohortId &&
+      item.id !== session?.id &&
+      item.sequence === Number(sequence)
+  );
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -144,6 +171,12 @@ export function SessionModal({
     if (!selectedCohort || !selectedPhase) {
       setError(
         "Select a Phase that belongs to the selected Cohort's Program."
+      );
+      return;
+    }
+    if (conflictingSessionNumber || conflictingSequence) {
+      setError(
+        "Session Number and Sequence must be unique within the selected Cohort."
       );
       return;
     }
@@ -252,6 +285,9 @@ export function SessionModal({
                         phase.program_id === nextCohort.program_id
                     )
                   : [];
+                const nextCohortSessions = sessions.filter(
+                  (item) => item.cohort_id === nextCohortId
+                );
 
                 setCohortId(nextCohortId);
                 setPhaseId((currentPhaseId) =>
@@ -262,6 +298,20 @@ export function SessionModal({
                     : nextPhases[0]?.id ?? ""
                 );
                 setWeekId("");
+                setSessionNumber(
+                  nextCohortSessions.reduce(
+                    (maximum, item) =>
+                      Math.max(maximum, item.session_number),
+                    -1
+                  ) + 1
+                );
+                setSequence(
+                  nextCohortSessions.reduce(
+                    (maximum, item) =>
+                      Math.max(maximum, item.sequence),
+                    -1
+                  ) + 1
+                );
               }}
               className="w-full px-3 py-2.5 rounded-xl border"
             >
@@ -338,6 +388,11 @@ export function SessionModal({
                 }
                 className="w-full px-3 py-2.5 rounded-xl border"
               />
+              {conflictingSessionNumber && (
+                <p className="mt-1 text-[11px] text-red-600">
+                  Session {sessionNumber} already exists for this Cohort.
+                </p>
+              )}
             </div>
 
             <div>
@@ -355,6 +410,11 @@ export function SessionModal({
                 }
                 className="w-full px-3 py-2.5 rounded-xl border"
               />
+              {conflictingSequence && (
+                <p className="mt-1 text-[11px] text-red-600">
+                  Sequence {sequence} is already in use for this Cohort.
+                </p>
+              )}
             </div>
           </div>
 
@@ -518,6 +578,8 @@ export function SessionModal({
               saving ||
               !cohortId ||
               !selectedPhase ||
+              Boolean(conflictingSessionNumber) ||
+              Boolean(conflictingSequence) ||
               !title.trim() ||
               !startAt ||
               !endAt

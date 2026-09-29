@@ -14,10 +14,11 @@ import {
   Circle,
 } from "lucide-react";
 
-import { getFellowSessions } from "@/lib/api/discover";
+import { getDiscoverWeeks } from "@/lib/api/discover";
 import { getFellowTeam } from "@/lib/api/toolkit";
 
 import {
+  DiscoverWeek,
   FellowContext,
   SessionSummary,
 } from "@/lib/api/types";
@@ -101,17 +102,16 @@ export function Sidebar({
   const pathname = usePathname();
   const { user, logout } = useAuth();
 
-  const [sessions, setSessions] =
-    React.useState<SessionSummary[]>([]);
+  const [weeks, setWeeks] = React.useState<DiscoverWeek[]>([]);
 
   const [teamName, setTeamName] = React.useState<string | null>(null);
 
   React.useEffect(() => {
-    getFellowSessions()
-      .then(setSessions)
+    getDiscoverWeeks()
+      .then(setWeeks)
       .catch((error) => {
         console.warn(
-          "Unable to load sidebar sessions:",
+          "Unable to load sidebar DISCOVER weeks:",
           error
         );
       });
@@ -121,35 +121,14 @@ export function Sidebar({
       .catch(() => setTeamName(null));
   }, []);
 
-  const induction = sessions.find(
-    (session) => session.session_number === 0
+  const orderedWeeks = [...weeks].sort(
+    (left, right) => left.sequence - right.sequence
   );
-
-  const sessionsByWeek = {
-    1: sessions.filter(
-      (session) =>
-        session.session_number >= 1 &&
-        session.session_number <= 3
-    ),
-
-    2: sessions.filter(
-      (session) =>
-        session.session_number >= 4 &&
-        session.session_number <= 6
-    ),
-
-    3: sessions.filter(
-      (session) =>
-        session.session_number >= 7 &&
-        session.session_number <= 9
-    ),
-
-    4: sessions.filter(
-      (session) =>
-        session.session_number >= 10 &&
-        session.session_number <= 12
-    ),
-  };
+  const induction = orderedWeeks
+    .flatMap((week) => week.sessions)
+    .find(
+      (session) => session.session_number === 0
+    );
 
   const navigationGroups: Array<{
     title: string;
@@ -263,26 +242,31 @@ export function Sidebar({
             </div>
           )}
 
-          {([1, 2, 3, 4] as const).map(
-            (weekNumber) => (
+          {orderedWeeks.map(
+            (week) => (
               <div
-                key={weekNumber}
+                key={week.id}
                 className="space-y-1"
               >
                 <h4 className="px-3 text-[10px] font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
-                  Week {weekNumber}
+                  Week {week.week_number}
                 </h4>
 
                 <div className="space-y-0.5">
-                  {sessionsByWeek[
-                    weekNumber
-                  ].map((session) => (
-                    <SessionSidebarItem
-                      key={session.id}
-                      session={session}
-                      onNavigate={onNavigate}
-                    />
-                  ))}
+                  {[...week.sessions]
+                    .filter(
+                      (session) => session.session_number !== 0
+                    )
+                    .sort(
+                      (left, right) => left.sequence - right.sequence
+                    )
+                    .map((session) => (
+                      <SessionSidebarItem
+                        key={session.id}
+                        session={session}
+                        onNavigate={onNavigate}
+                      />
+                    ))}
                 </div>
               </div>
             )

@@ -121,6 +121,8 @@ export default function AdminHomePage() {
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
+  const [sessionCohortFilter, setSessionCohortFilter] =
+    React.useState<string>("all");
 
   // Invite modal state
   const [showInviteModal, setShowInviteModal] = React.useState(false);
@@ -382,6 +384,12 @@ export default function AdminHomePage() {
       statusFilter === "all" || f.account_status.toLowerCase() === statusFilter.toLowerCase();
     return matchesSearch && matchesStatus;
   });
+  const filteredSessions =
+    sessionCohortFilter === "all"
+      ? sessions
+      : sessions.filter(
+          (session) => session.cohort_id === sessionCohortFilter
+        );
 
   React.useEffect(() => {
     if (!weeklyOutputSessionId) {
@@ -1727,17 +1735,38 @@ export default function AdminHomePage() {
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSelectedSession(null);
-                    setShowSessionModal(true);
-                  }}
-                  className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold"
-                >
-                  <Plus className="w-4 h-4" />
-                  Create Session
-                </button>
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <label className="sr-only" htmlFor="session-cohort-filter">
+                    Filter Sessions by Cohort
+                  </label>
+                  <select
+                    id="session-cohort-filter"
+                    value={sessionCohortFilter}
+                    onChange={(event) =>
+                      setSessionCohortFilter(event.target.value)
+                    }
+                    className="rounded-xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)] px-3 py-2 text-xs font-semibold"
+                  >
+                    <option value="all">All Cohorts</option>
+                    {cohorts.map((cohort) => (
+                      <option key={cohort.id} value={cohort.id}>
+                        {cohort.name}
+                      </option>
+                    ))}
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedSession(null);
+                      setShowSessionModal(true);
+                    }}
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl bg-[var(--color-brand-blue)] text-white text-xs font-bold"
+                  >
+                    <Plus className="w-4 h-4" />
+                    Create Session
+                  </button>
+                </div>
               </div>
 
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
@@ -1756,17 +1785,17 @@ export default function AdminHomePage() {
 
                   <tbody className="divide-y divide-[var(--color-border-default)]">
 
-                    {sessions.length === 0 ? (
+                    {filteredSessions.length === 0 ? (
                       <tr>
                         <td
                           colSpan={6}
                           className="py-10 text-center text-[var(--color-text-muted)]"
                         >
-                          No sessions created yet.
+                          No sessions found for the selected Cohort.
                         </td>
                       </tr>
                     ) : (
-                      sessions.map((session) => {
+                      filteredSessions.map((session) => {
                         const week = weeks.find(
                           (w) => w.id === session.week_id
                         );
@@ -2556,6 +2585,7 @@ export default function AdminHomePage() {
           cohorts={cohorts}
           phases={phases}
           weeks={weeks}
+          sessions={sessions}
           onClose={() => {
             setShowSessionModal(false);
             setSelectedSession(null);

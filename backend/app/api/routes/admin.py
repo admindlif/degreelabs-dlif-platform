@@ -63,6 +63,10 @@ from app.services.google_calendar import (
     update_calendar_event,
     delete_calendar_event,
 )
+from app.services.discover_initialization import (
+    DiscoverSessionInitializationError,
+    initialize_discover_sessions_for_cohort,
+)
 
 from app.models.submission import TeamSubmission
 
@@ -350,8 +354,17 @@ def create_cohort(data: CohortCreate, db: Session = Depends(get_db), _admin: Use
     payload = data.model_dump()
     payload["status"] = CohortStatus(payload["status"])
     cohort = Cohort(**payload)
-    db.add(cohort)
-    db.commit()
+    try:
+        db.add(cohort)
+        db.flush()
+        initialize_discover_sessions_for_cohort(db, cohort)
+        db.commit()
+    except DiscoverSessionInitializationError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        ) from exc
     db.refresh(cohort)
     return {"id": str(cohort.id), "name": cohort.name, "code": cohort.code}
 
