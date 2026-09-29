@@ -20,6 +20,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 # pyrefly: ignore [missing-import]
+from app.core.config import settings
+# pyrefly: ignore [missing-import]
 from app.db.session import engine
 # pyrefly: ignore [missing-import]
 from app.api.router import api_router
@@ -39,18 +41,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS: Restricted strictly to the Admin Frontend (port 3002)
-_allowed_origins = [
-    "http://localhost:3002",
-    "http://127.0.0.1:3002",
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+    ],
 )
 
 # Mount shared auth routes (login, activate, 2fa, /auth/me) + admin CRUD

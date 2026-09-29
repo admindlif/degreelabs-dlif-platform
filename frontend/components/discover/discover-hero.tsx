@@ -1,6 +1,5 @@
 import * as React from "react";
 import { CheckCircle2 } from "lucide-react";
-import { SerifHighlight } from "@/components/ui/serif-highlight";
 import { Badge } from "@/components/ui/badge";
 import { CohortSummary, DiscoverProgress, PhaseSummary, SessionSummary } from "@/lib/api/types";
 
@@ -49,10 +48,9 @@ export function DiscoverHero({
             {phase?.name || "DISCOVER"}
           </h1>
 
-          {/* Signature Brand Voice with Italic Serif Accent */}
+          {/* DISCOVER description */}
           <p className="text-lg md:text-xl text-[var(--color-text-body)] font-medium leading-relaxed">
-            The classroom gives knowledge.{" "}
-            <SerifHighlight>Discover builds capability.</SerifHighlight>
+            A 4-week strategic problem-solving apprenticeship.
           </p>
         </div>
 

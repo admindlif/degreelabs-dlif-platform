@@ -6,7 +6,6 @@ Idempotent: safe to run multiple times without duplicating data.
 
 import os
 import sys
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 # Add backend directory to sys.path
@@ -35,13 +34,15 @@ def seed_dlif():
             program = Program(
                 name="DegreeLabs Impact Fellowship",
                 code="DLIF",
-                description="The premier experiential learning fellowship program transforming fellows into high-impact practitioners.",
+                description=None,
                 is_active=True,
             )
             db.add(program)
             db.flush()
             print(f"  + Created Program: {program.name} ({program.code})")
         else:
+            program.name = "DegreeLabs Impact Fellowship"
+            program.description = None
             print(f"  * Existing Program: {program.name}")
 
         # 2. Target existing Cohort
@@ -82,13 +83,20 @@ def seed_dlif():
                 development_role="THINK",
                 sequence=1,
                 duration_weeks=4,
-                description="The classroom gives knowledge. Discover builds capability.",
+                description="A 4-week strategic problem-solving apprenticeship.",
                 is_active=True,
             )
             db.add(phase)
             db.flush()
             print(f"  + Created Phase: {phase.name} ({phase.development_role})")
         else:
+            phase.name = "DISCOVER"
+            phase.development_role = "THINK"
+            phase.sequence = 1
+            phase.duration_weeks = 4
+            phase.description = (
+                "A 4-week strategic problem-solving apprenticeship."
+            )
             print(f"  * Existing Phase: {phase.name}")
 
         # 4. Weeks 1 to 4
@@ -98,28 +106,42 @@ def seed_dlif():
                 "sequence": 1,
                 "title": "DISCOVER THE REAL PROBLEM",
                 "strategic_question": "What is really happening here?",
-                "description": "Frame the business context, analyze company challenge findings, decompose the industry problem, and establish team collaboration workflows.",
+                "description": (
+                    "Build enough business context and evidence to define the "
+                    "problem that deserves attention."
+                ),
             },
             {
                 "week_number": 2,
                 "sequence": 2,
                 "title": "CREATE STRATEGIC POSSIBILITIES",
                 "strategic_question": "What could we choose to do?",
-                "description": "Conduct targeted inquiry, evaluate competitive solutions, and synthesize ≥3 Strategic possibilities using WWHTBT (What Would Have to Be True?) as the evidence filter.",
+                "description": (
+                    "Prevent idea fixation. Your team must create materially "
+                    "different strategic possibilities, surface the assumptions "
+                    "behind each, test the most important barriers and earn the "
+                    "right to choose."
+                ),
             },
             {
                 "week_number": 3,
                 "sequence": 3,
                 "title": "DESIGN THE STRATEGY",
-                "strategic_question": "How will we make this happen?",
-                "description": "Develop the strategic choice, apply execution thinking to blueprint the roadmap, and build the Strategy & Execution Blueprint for review.",
+                "strategic_question": (
+                    "If this is our choice, how will it actually work?"
+                ),
+                "description": (
+                    "Convert the selected possibility into an integrated strategy "
+                    "and an execution architecture credible enough to survive "
+                    "contact with the company’s real constraints."
+                ),
             },
             {
                 "week_number": 4,
                 "sequence": 4,
                 "title": "BUILD THE CASE FOR ACTION",
-                "strategic_question": "Why should they believe and invest?",
-                "description": "Synthesize all company challenge findings into three separate final outputs: Executive Proposal, Company Presentation, and Strategic Design Portfolio.",
+                "strategic_question": "Why should the company believe us?",
+                "description": None,
             },
         ]
 
@@ -144,186 +166,200 @@ def seed_dlif():
                 db.flush()
                 print(f"  + Created Week {week.week_number}: {week.title}")
             else:
+                week.sequence = w_spec["sequence"]
+                week.title = w_spec["title"]
+                week.strategic_question = w_spec["strategic_question"]
+                week.description = w_spec["description"]
                 print(f"  * Existing Week {week.week_number}: {week.title}")
             weeks_map[week.week_number] = week
 
         # 5. Sessions 0 to 12
-        now = datetime.now(timezone.utc)
-        today_start = now.replace(hour=12, minute=30, second=0, microsecond=0)  # ~6:00 PM IST is 12:30 PM UTC
-
         sessions_spec = [
             # Week 1
             {
                 "session_number": 0,
                 "session_type": SessionType.INDUCTION,
                 "title": "Induction",
-                "description": "Welcome to DLIF, platform onboarding, squad assignments, and fellowship kickoff.",
+                "description": None,
                 "sequence": 0,
                 "week_number": None,
-                "status": SessionStatus.COMPLETED,
-                "start_at": today_start - timedelta(days=3),
-                "end_at": today_start - timedelta(days=3) + timedelta(hours=1, minutes=30),
-                "recording_url": "https://player.vimeo.com/video/sample-session-0",
-                "meeting_url": "https://meet.google.com/dlif-onboarding",
+                "status": SessionStatus.SCHEDULED,
+                "start_at": None,
+                "end_at": None,
+                "recording_url": None,
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 1,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Business Context & Evidence",
-                "description": "Problem space analysis, scope definition, and business diagnosis framing.",
+                "description": None,
                 "sequence": 1,
                 "week_number": 1,
-                "status": SessionStatus.COMPLETED,
-                "start_at": today_start - timedelta(days=2),
-                "end_at": today_start - timedelta(days=2) + timedelta(hours=2),
-                "recording_url": "https://player.vimeo.com/video/sample-session-1",
-                "meeting_url": "https://meet.google.com/dlif-session-01",
+                "status": SessionStatus.SCHEDULED,
+                "start_at": None,
+                "end_at": None,
+                "recording_url": None,
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 2,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Problem Framing & Diagnosis",
-                "description": "Deconstruct the company challenge problem statement with our industry partner, identify core constraints, and map stakeholder requirements.",
+                "description": None,
                 "sequence": 2,
                 "week_number": 1,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(hours=2),
-                "end_at": today_start + timedelta(hours=4),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-02",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 3,
                 "session_type": SessionType.OUTPUT_REVIEW,
                 "title": "Discovery Review",
-                "description": "Gate 1 review of the Business Diagnosis & Problem Framing Pack with industry jury.",
+                "description": None,
                 "sequence": 3,
                 "week_number": 1,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=3),
-                "end_at": today_start + timedelta(days=3, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-03",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             # Week 2
             {
                 "session_number": 4,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Research & Possibility Generation",
-                "description": "Conduct targeted user inquiry and customer discovery.",
+                "description": None,
                 "sequence": 4,
                 "week_number": 2,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=5),
-                "end_at": today_start + timedelta(days=5, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-04",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 5,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "What Would Have to Be True?",
-                "description": "Competitive landscape, benchmarking, and hypothesis conditions.",
+                "description": None,
                 "sequence": 5,
                 "week_number": 2,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=7),
-                "end_at": today_start + timedelta(days=7, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-05",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 6,
                 "session_type": SessionType.OUTPUT_REVIEW,
                 "title": "Strategic Choice Review",
-                "description": "Gate 2 review of Strategic Possibility & Choice Pack.",
+                "description": None,
                 "sequence": 6,
                 "week_number": 2,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=10),
-                "end_at": today_start + timedelta(days=10, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-06",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             # Week 3
             {
                 "session_number": 7,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Integrated Strategy Choices",
-                "description": "Ideation and feasibility matrix mapping.",
+                "description": None,
                 "sequence": 7,
                 "week_number": 3,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=12),
-                "end_at": today_start + timedelta(days=12, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-07",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 8,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Execution Architecture",
-                "description": "Solution architecture and Dedicated Team Mentor critiques.",
+                "description": None,
                 "sequence": 8,
                 "week_number": 3,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=14),
-                "end_at": today_start + timedelta(days=14, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-08",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 9,
                 "session_type": SessionType.OUTPUT_REVIEW,
                 "title": "Strategy Review",
-                "description": "Gate 3 review of Strategy & Execution Blueprint.",
+                "description": None,
                 "sequence": 9,
                 "week_number": 3,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=17),
-                "end_at": today_start + timedelta(days=17, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-09",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             # Week 4
             {
                 "session_number": 10,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Proposal Architecture",
-                "description": "Executive pitch deck and business case formation.",
+                "description": None,
                 "sequence": 10,
                 "week_number": 4,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=19),
-                "end_at": today_start + timedelta(days=19, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-10",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 11,
                 "session_type": SessionType.LEARN_WORK,
                 "title": "Executive Communication",
-                "description": "Company Presentation and Strategic Design Portfolio preparation.",
+                "description": None,
                 "sequence": 11,
                 "week_number": 4,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=21),
-                "end_at": today_start + timedelta(days=21, hours=2),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-11",
+                "meeting_url": None,
+                "transcript_url": None,
             },
             {
                 "session_number": 12,
                 "session_type": SessionType.OUTPUT_REVIEW,
                 "title": "Final DISCOVER Review",
-                "description": "Final presentation to Company Challenge Owner & Industry Jury.",
+                "description": None,
                 "sequence": 12,
                 "week_number": 4,
                 "status": SessionStatus.SCHEDULED,
-                "start_at": today_start + timedelta(days=24),
-                "end_at": today_start + timedelta(days=24, hours=3),
+                "start_at": None,
+                "end_at": None,
                 "recording_url": None,
-                "meeting_url": "https://meet.google.com/dlif-session-12",
+                "meeting_url": None,
+                "transcript_url": None,
             },
         ]
 
@@ -347,11 +383,8 @@ def seed_dlif():
                     is_unlocked=(
                         s_spec["session_number"] <= 2
                     ),
-                    unlock_at=(
-                        now
-                        if s_spec["session_number"] <= 2
-                        else None
-                    ),
+                    unlock_at=None,
+                    submission_enabled=False,
                     session_number=s_spec["session_number"],
                     session_type=s_spec["session_type"],
                     title=s_spec["title"],
@@ -361,6 +394,7 @@ def seed_dlif():
                     status=s_spec["status"],
                     meeting_url=s_spec["meeting_url"],
                     recording_url=s_spec["recording_url"],
+                    transcript_url=s_spec["transcript_url"],
                     sequence=s_spec["sequence"],
                 )
                 db.add(session)
@@ -381,8 +415,9 @@ def seed_dlif():
                 session.session_type = s_spec["session_type"]
 
                 # Preserve operational Session data entered by Admin:
-                # dates, status, Meet links, recordings, transcripts
-                # and lock state must not be overwritten by reseeding.
+                # dates, status, Meet/recording/transcript URLs, lock state,
+                # submission state, and Google Calendar/Meet metadata must not
+                # be overwritten by reseeding.
 
                 session.sequence = s_spec["sequence"]
 
@@ -404,7 +439,7 @@ def seed_dlif():
             },
             {
                 "title": "Problem Rubric & Guidelines",
-                "subtitle": "Certificate in Problem Analysis & Solution Architecture (DISCOVER)",
+                "subtitle": None,
                 "resource_type": ResourceType.RUBRIC,
                 "url": None,
                 "is_downloadable": False,
@@ -433,6 +468,10 @@ def seed_dlif():
                 db.add(resource)
                 print(f"  + Created Resource: {resource.title}")
             else:
+                existing_resource.subtitle = r_spec["subtitle"]
+                existing_resource.resource_type = r_spec["resource_type"]
+                existing_resource.is_downloadable = r_spec["is_downloadable"]
+                existing_resource.sequence = r_spec["sequence"]
                 print(f"  * Existing Resource: {existing_resource.title}")
 
         db.commit()

@@ -246,8 +246,7 @@ The student portal DISCOVER phase screen translates the **4-Week Discover Journe
 | ZONE 1: DISCOVER PHASE HERO BANNER                                                       |
 | - Eyebrow: "DEGREE LABS INDUSTRY FELLOWSHIP (DLIF) - COHORT 2026-A"                      |
 | - Title: "Discover Program"                                                             |
-| - Signature Sub-title: "The classroom gives knowledge. Discover builds capability."     |
-|   (with "Discover builds capability" in Italic Serif #FF510E)                           |
+| - Description: "A 4-week strategic problem-solving apprenticeship."                    |
 | - Overall Journey Progress Bar (e.g. "Week 1 of 4 | 25% Completed")                       |
 +------------------------------------------------------------------------------------------+
 
@@ -284,12 +283,12 @@ The student portal DISCOVER phase screen translates the **4-Week Discover Journe
 |                                                                                          |
 | [ W4: Proposal & Presentation ]   -> LOCKED                                              |
 |   - Session 7: Pitch Deck & Business Case                                                |
-|   - Session 8: Final Presentation to Industry Jury                                       |
+|   - Session 12: Final DISCOVER Review                                                    |
 +------------------------------------------------------------------------------------------+
 ```
 
 ### Key Interactive Modules:
-1. **Hero Banner**: Embeds the authentic DegreeLabs brand voice with `"DM Serif Text"` italic highlights (`#FF510E`).
+1. **Hero Banner**: Presents the handbook-supported DISCOVER description and progress.
 2. **Live Session Spotlight Card**: Highlights the immediate countdown, zoom/meet link trigger, and session materials (slides, recording placeholder, attendance status).
 3. **Weekly Accordion / Stepper**: Distinct visual progression from `Completed` (soft green border + checkmark), `Active / In Progress` (brand blue `#3877F9` border + active glow), to `Upcoming` (muted `#8A8A8A`).
 4. **Fellow Handbook & Resources Rail**: Always accessible one-click downloads for curriculum handbooks, rubrics, and working board templates.

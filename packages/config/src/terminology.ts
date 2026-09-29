@@ -24,7 +24,7 @@ export const PHASES = {
     name: "DISCOVER",
     action: "THINK",
     full: "DISCOVER (THINK)",
-    tagline: "The classroom gives knowledge. Discover builds capability.",
+    tagline: "A 4-week strategic problem-solving apprenticeship.",
     weeks: 4,
   },
   VALIDATE: {
@@ -98,7 +98,7 @@ export const DISCOVER_CURRICULUM = {
   week3: {
     weekNumber: "WEEK 03",
     title: "DESIGN THE STRATEGY",
-    coreQuestion: "How will we make this happen?",
+    coreQuestion: "If this is our choice, how will it actually work?",
     output: "Strategy & Execution Blueprint",
     sessions: [
       { id: "s7", number: "Session 7: Learn + Work", title: "Integrated Strategy Choices" },
@@ -109,7 +109,7 @@ export const DISCOVER_CURRICULUM = {
   week4: {
     weekNumber: "WEEK 04",
     title: "BUILD THE CASE FOR ACTION",
-    coreQuestion: "Why should they believe and invest?",
+    coreQuestion: "Why should the company believe us?",
     outputs: [
       "Executive Proposal",
       "Company Presentation",

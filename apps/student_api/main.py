@@ -35,19 +35,23 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS: Restricted strictly to the Student Frontend (port 3000)
-_allowed_origins = [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    settings.frontend_base_url,
-]
-
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_allowed_origins,
+    allow_origins=settings.allowed_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=[
+        "GET",
+        "POST",
+        "PUT",
+        "PATCH",
+        "DELETE",
+        "OPTIONS",
+    ],
+    allow_headers=[
+        "Authorization",
+        "Content-Type",
+        "Accept",
+    ],
 )
 
 # Mount shared auth routes (login, activate, 2fa, /auth/me)
