@@ -19,29 +19,8 @@ from app.db.session import SessionLocal
 from app.models.cohort import Cohort
 from app.models.phase import Phase
 from app.models.program import Program
-from app.models.resource import Resource, ResourceType
 from app.services.discover_initialization import (
     initialize_discover_sessions_for_cohort,
-)
-
-
-RESOURCES_SPEC = (
-    {
-        "title": "DLIF Fellow Handbook — DISCOVER (v1.0, Sept 2026)",
-        "subtitle": "PDF • v1.0 (Sept 2026)",
-        "resource_type": ResourceType.HANDBOOK,
-        "url": None,
-        "is_downloadable": True,
-        "sequence": 1,
-    },
-    {
-        "title": "Problem Rubric & Guidelines",
-        "subtitle": None,
-        "resource_type": ResourceType.RUBRIC,
-        "url": None,
-        "is_downloadable": False,
-        "sequence": 2,
-    },
 )
 
 
@@ -132,33 +111,6 @@ def seed_dlif() -> None:
             print(f"  ~ Synced canonical Session {session_number}")
         for session_number in initialization.unchanged_session_numbers:
             print(f"  * Unchanged canonical Session {session_number}")
-
-        for resource_spec in RESOURCES_SPEC:
-            resource = db.scalars(
-                select(Resource).where(
-                    Resource.phase_id == phase.id,
-                    Resource.title == resource_spec["title"],
-                )
-            ).first()
-            if not resource:
-                resource = Resource(
-                    phase_id=phase.id,
-                    title=resource_spec["title"],
-                    subtitle=resource_spec["subtitle"],
-                    resource_type=resource_spec["resource_type"],
-                    url=resource_spec["url"],
-                    is_downloadable=resource_spec["is_downloadable"],
-                    is_active=True,
-                    sequence=resource_spec["sequence"],
-                )
-                db.add(resource)
-                print(f"  + Created Resource: {resource.title}")
-            else:
-                resource.subtitle = resource_spec["subtitle"]
-                resource.resource_type = resource_spec["resource_type"]
-                resource.is_downloadable = resource_spec["is_downloadable"]
-                resource.sequence = resource_spec["sequence"]
-                print(f"  * Existing Resource: {resource.title}")
 
         db.commit()
         print("[SUCCESS] DLIF seed complete!")
