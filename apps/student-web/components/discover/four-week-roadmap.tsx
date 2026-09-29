@@ -206,10 +206,10 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
             <div
               key={week.weekNumber}
               className={`rounded-[24px] border transition-all duration-200 overflow-hidden ${isActive
-                  ? "bg-[var(--color-bg-canvas)] border-[var(--color-brand-blue)] shadow-[0_4px_30px_rgba(56,119,249,0.08)]"
-                  : isLocked
-                    ? "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] opacity-75"
-                    : "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]"
+                ? "bg-[var(--color-bg-canvas)] border-[var(--color-brand-blue)] shadow-[0_4px_30px_rgba(56,119,249,0.08)]"
+                : isLocked
+                  ? "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] opacity-75"
+                  : "bg-[var(--color-bg-surface)] border-[var(--color-border-default)] hover:border-[var(--color-border-strong)]"
                 }`}
             >
               {/* Week Title Bar */}
@@ -250,7 +250,7 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                     key={session.id}
                     className="p-4 md:px-8 md:py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[var(--color-bg-subtle)] transition-colors"
                   >
-                    <div className="flex items-center gap-4">
+                    <div className="flex min-w-0 items-center gap-4">
                       {session.status === "locked" ? (
                         <div className="w-8 h-8 rounded-full bg-[var(--color-bg-subtle)] text-[var(--color-text-muted)] flex items-center justify-center shrink-0">
                           <Lock className="w-4 h-4" />
@@ -269,14 +269,14 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                         </div>
                       )}
 
-                      <div>
-                        <div className="flex items-center gap-2">
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="text-xs font-bold text-[var(--color-text-muted)] uppercase tracking-wider">
                             {session.number}
                           </span>
                           <span className="text-xs text-[var(--color-text-muted)]">• {session.date}</span>
                         </div>
-                        <h4 className="text-sm md:text-base font-bold text-[var(--color-text-primary)]">
+                        <h4 className="break-words text-sm md:text-base font-bold text-[var(--color-text-primary)]">
                           {session.title}
                         </h4>
                       </div>

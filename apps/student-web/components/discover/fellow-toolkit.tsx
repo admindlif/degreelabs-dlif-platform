@@ -104,18 +104,18 @@ export function FellowToolkit() {
                 <div
                   key={resource.id}
                   onClick={handleClick}
-                  className={`p-3.5 rounded-xl bg-white border border-[var(--color-border-default)] ${accent.hover} hover:shadow-xs transition-all flex items-center justify-between group ${resource.url ? "cursor-pointer" : "cursor-default"}`}
+                  className={`p-3.5 rounded-xl bg-white border border-[var(--color-border-default)] ${accent.hover} hover:shadow-xs transition-all flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between group ${resource.url ? "cursor-pointer" : "cursor-default"}`}
                 >
-                  <div className="flex items-center gap-3">
+                  <div className="flex min-w-0 items-center gap-3">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center"
                       style={{ backgroundColor: accent.bg, color: accent.text }}
                     >
                       <ResourceIcon type={resource.resource_type} />
                     </div>
-                    <div>
+                    <div className="min-w-0">
                       <p
-                        className="text-xs font-bold text-[var(--color-text-primary)] transition-colors"
+                        className="break-words text-xs font-bold text-[var(--color-text-primary)] transition-colors"
                         style={{ color: undefined }}
                       >
                         {resource.title}
@@ -153,15 +153,17 @@ export function FellowToolkit() {
           </div>
         ) : team ? (
           <>
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-3">
+              <div className="flex min-w-0 items-center gap-2">
                 <div className="w-8 h-8 rounded-full bg-[var(--color-brand-navy)] text-white flex items-center justify-center">
                   <Users className="w-4 h-4" />
                 </div>
-                <div>
-                  <CardTitle className="text-base font-bold">Team {team.name}</CardTitle>
+                <div className="min-w-0">
+                  <CardTitle className="break-words text-base font-bold">
+                    Team {team.name}
+                  </CardTitle>
                   {team.company_challenge && (
-                    <p className="text-[10px] text-[var(--color-text-muted)]">
+                    <p className="break-words text-[10px] text-[var(--color-text-muted)]">
                       Company challenge: {team.company_challenge}
                     </p>
                   )}
