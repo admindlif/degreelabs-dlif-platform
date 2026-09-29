@@ -16,6 +16,8 @@ from app.models.user import AccountStatus, User, UserRole
 from app.models.week import Week
 from app.services.discover_initialization import (
     CANONICAL_DISCOVER_SESSIONS,
+    CANONICAL_DISCOVER_WEEKS,
+    DiscoverSessionInitializationError,
     initialize_discover_sessions_for_cohort,
 )
 
@@ -150,9 +152,13 @@ def test_initializer_creates_s0_through_s12_once_and_is_idempotent(
     )
 
     assert first_result.created_session_numbers == tuple(range(13))
+    assert first_result.synced_week_numbers == (1, 2, 3, 4)
     assert second_result.created_session_numbers == ()
     assert second_result.synced_session_numbers == ()
     assert second_result.unchanged_session_numbers == tuple(range(13))
+    assert second_result.created_week_numbers == ()
+    assert second_result.synced_week_numbers == ()
+    assert second_result.unchanged_week_numbers == (1, 2, 3, 4)
     assert len(sessions) == 13
     assert [item.session_number for item in sessions] == list(range(13))
     assert [item.title for item in sessions] == [
@@ -171,6 +177,75 @@ def test_initializer_creates_s0_through_s12_once_and_is_idempotent(
             assert item.unlock_at is None
 
 
+def test_initializer_repairs_incomplete_weeks_before_creating_sessions(
+    db: Session,
+    discover_foundation,
+):
+    phase = discover_foundation["phase"]
+    week_one = discover_foundation["weeks"][1]
+    week_one.sequence = 9
+    week_one.title = "Drifted Week 1"
+    week_one.strategic_question = "Drifted question?"
+    week_one.description = "Drifted description"
+    week_one.unlock_at = datetime.now(timezone.utc) + timedelta(days=1)
+    for week_number in (2, 3, 4):
+        db.delete(discover_foundation["weeks"].pop(week_number))
+    db.commit()
+    db.refresh(week_one)
+
+    original_id = week_one.id
+    original_unlock_at = week_one.unlock_at
+    original_created_at = week_one.created_at
+    original_updated_at = week_one.updated_at
+    cohort = create_cohort(db, discover_foundation, "REPAIR-WEEKS")
+
+    first_result = initialize_discover_sessions_for_cohort(db, cohort)
+    second_result = initialize_discover_sessions_for_cohort(db, cohort)
+    db.commit()
+    db.refresh(week_one)
+
+    weeks = list(
+        db.scalars(
+            select(Week)
+            .where(Week.phase_id == phase.id)
+            .order_by(Week.week_number)
+        ).all()
+    )
+    assert first_result.created_week_numbers == (2, 3, 4)
+    assert first_result.synced_week_numbers == (1,)
+    assert first_result.unchanged_week_numbers == ()
+    assert first_result.created_session_numbers == tuple(range(13))
+    assert second_result.created_week_numbers == ()
+    assert second_result.synced_week_numbers == ()
+    assert second_result.unchanged_week_numbers == (1, 2, 3, 4)
+    assert second_result.created_session_numbers == ()
+    assert second_result.unchanged_session_numbers == tuple(range(13))
+    assert len(weeks) == 4
+    assert week_one.id == original_id
+    assert week_one.unlock_at == original_unlock_at
+    assert week_one.created_at == original_created_at
+    assert week_one.updated_at == original_updated_at
+    assert [
+        (
+            week.week_number,
+            week.sequence,
+            week.title,
+            week.strategic_question,
+            week.description,
+        )
+        for week in weeks
+    ] == [
+        (
+            spec.week_number,
+            spec.sequence,
+            spec.title,
+            spec.strategic_question,
+            spec.description,
+        )
+        for spec in CANONICAL_DISCOVER_WEEKS
+    ]
+
+
 def test_two_cohorts_share_canonical_metadata_but_not_unlock_state(
     db: Session,
     discover_foundation,
@@ -178,6 +253,13 @@ def test_two_cohorts_share_canonical_metadata_but_not_unlock_state(
     cohort_a = create_cohort(db, discover_foundation, "COMMON-A")
     cohort_b = create_cohort(db, discover_foundation, "COMMON-B")
     initialize_discover_sessions_for_cohort(db, cohort_a)
+    shared_week_ids = tuple(
+        db.scalars(
+            select(Week.id)
+            .where(Week.phase_id == discover_foundation["phase"].id)
+            .order_by(Week.week_number)
+        ).all()
+    )
     initialize_discover_sessions_for_cohort(db, cohort_b)
     db.commit()
 
@@ -197,6 +279,16 @@ def test_two_cohorts_share_canonical_metadata_but_not_unlock_state(
     )
 
     assert len(sessions_a) == len(sessions_b) == 13
+    assert shared_week_ids == tuple(
+        db.scalars(
+            select(Week.id)
+            .where(Week.phase_id == discover_foundation["phase"].id)
+            .order_by(Week.week_number)
+        ).all()
+    )
+    assert {item.id for item in sessions_a}.isdisjoint(
+        {item.id for item in sessions_b}
+    )
     assert [
         (
             item.session_number,
@@ -336,7 +428,7 @@ def test_admin_created_cohort_is_initialized_automatically(
     assert [item.session_number for item in sessions] == list(range(13))
 
 
-def test_admin_cohort_creation_rejects_incomplete_discover_structure(
+def test_admin_cohort_creation_repairs_incomplete_discover_structure(
     client: TestClient,
     admin_headers: dict[str, str],
     db: Session,
@@ -359,8 +451,83 @@ def test_admin_cohort_creation_rejects_incomplete_discover_structure(
         },
     )
 
+    assert response.status_code == 201
+    cohort = db.scalar(
+        select(Cohort).where(Cohort.code == cohort_code)
+    )
+    assert cohort is not None
+    week_four = db.scalar(
+        select(Week).where(
+            Week.phase_id == discover_foundation["phase"].id,
+            Week.week_number == 4,
+        )
+    )
+    assert week_four is not None
+    assert week_four.title == "BUILD THE CASE FOR ACTION"
+    assert week_four.description is None
+    assert set(
+        db.scalars(
+            select(DBSession.session_number).where(
+                DBSession.cohort_id == cohort.id
+            )
+        ).all()
+    ) == set(range(13))
+
+
+def test_initializer_rejects_missing_active_discover_phase(
+    db: Session,
+    discover_foundation,
+):
+    phase = discover_foundation["phase"]
+    phase.is_active = False
+    missing_week = discover_foundation["weeks"].pop(4)
+    db.delete(missing_week)
+    cohort = create_cohort(db, discover_foundation, "NO-PHASE")
+    db.commit()
+
+    with pytest.raises(
+        DiscoverSessionInitializationError,
+        match="does not have an active DISCOVER Phase",
+    ):
+        initialize_discover_sessions_for_cohort(db, cohort)
+
+    assert db.scalar(
+        select(Week).where(
+            Week.phase_id == phase.id,
+            Week.week_number == 4,
+        )
+    ) is None
+    assert db.scalars(
+        select(DBSession).where(DBSession.cohort_id == cohort.id)
+    ).all() == []
+
+
+def test_admin_cohort_creation_rolls_back_without_active_discover_phase(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+    discover_foundation,
+):
+    discover_foundation["phase"].is_active = False
+    db.commit()
+    suffix = uuid4().hex[:8]
+    cohort_code = f"NO-ACTIVE-PHASE-{suffix}"
+
+    response = client.post(
+        "/api/v1/admin/cohorts",
+        headers=admin_headers,
+        json={
+            "program_id": str(discover_foundation["program"].id),
+            "name": f"No active DISCOVER Phase {suffix}",
+            "code": cohort_code,
+            "status": "active",
+        },
+    )
+
     assert response.status_code == 422
-    assert "Missing: 4" in response.json()["detail"]
+    assert "does not have an active DISCOVER Phase" in response.json()[
+        "detail"
+    ]
     assert db.scalar(
         select(Cohort).where(Cohort.code == cohort_code)
     ) is None

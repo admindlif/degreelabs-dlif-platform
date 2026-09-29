@@ -1,4 +1,4 @@
-"""Create or synchronize canonical DISCOVER Sessions for one Cohort."""
+"""Create or synchronize canonical DISCOVER Weeks and Cohort Sessions."""
 
 import argparse
 import sys
@@ -20,8 +20,9 @@ from app.services.discover_initialization import (
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description=(
-            "Create missing canonical DISCOVER Sessions 0-12 and synchronize "
-            "their curriculum metadata without changing operational fields."
+            "Ensure canonical DISCOVER Weeks 1-4 and Sessions 0-12 exist, "
+            "synchronizing curriculum metadata without changing operational "
+            "fields."
         )
     )
     parser.add_argument(
@@ -47,12 +48,39 @@ def main() -> None:
         result = initialize_discover_sessions_for_cohort(db, cohort)
         db.commit()
 
-        print(
-            f"Initialized Cohort {cohort.name} ({cohort.code}). "
-            f"CREATED: {list(result.created_session_numbers)}; "
-            f"SYNCED: {list(result.synced_session_numbers)}; "
-            f"UNCHANGED: {list(result.unchanged_session_numbers)}."
-        )
+        print(f"Cohort: {cohort.name} ({cohort.code})")
+        print("\nWEEKS")
+        week_actions = {
+            **{number: "CREATED" for number in result.created_week_numbers},
+            **{number: "SYNCED" for number in result.synced_week_numbers},
+            **{
+                number: "UNCHANGED"
+                for number in result.unchanged_week_numbers
+            },
+        }
+        for week_number in sorted(week_actions):
+            print(f"{week_actions[week_number]:<9} Week {week_number}")
+
+        print("\nSESSIONS")
+        session_actions = {
+            **{
+                number: "CREATED"
+                for number in result.created_session_numbers
+            },
+            **{
+                number: "SYNCED"
+                for number in result.synced_session_numbers
+            },
+            **{
+                number: "UNCHANGED"
+                for number in result.unchanged_session_numbers
+            },
+        }
+        for session_number in sorted(session_actions):
+            print(
+                f"{session_actions[session_number]:<9} "
+                f"Session {session_number}"
+            )
     except Exception:
         db.rollback()
         raise

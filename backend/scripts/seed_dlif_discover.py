@@ -1,7 +1,8 @@
 """Seed the DLIF DISCOVER curriculum for one existing Cohort.
 
 Idempotent and controlled by ``DLIF_SEED_COHORT_CODE``. Existing canonical
-Session metadata is synchronized without overwriting operational fields.
+Week and Session metadata is synchronized without overwriting operational
+fields.
 """
 
 import os
@@ -19,55 +20,8 @@ from app.models.cohort import Cohort
 from app.models.phase import Phase
 from app.models.program import Program
 from app.models.resource import Resource, ResourceType
-from app.models.week import Week
 from app.services.discover_initialization import (
     initialize_discover_sessions_for_cohort,
-)
-
-
-WEEKS_SPEC = (
-    {
-        "week_number": 1,
-        "sequence": 1,
-        "title": "DISCOVER THE REAL PROBLEM",
-        "strategic_question": "What is really happening here?",
-        "description": (
-            "Build enough business context and evidence to define the "
-            "problem that deserves attention."
-        ),
-    },
-    {
-        "week_number": 2,
-        "sequence": 2,
-        "title": "CREATE STRATEGIC POSSIBILITIES",
-        "strategic_question": "What could we choose to do?",
-        "description": (
-            "Prevent idea fixation. Your team must create materially "
-            "different strategic possibilities, surface the assumptions "
-            "behind each, test the most important barriers and earn the "
-            "right to choose."
-        ),
-    },
-    {
-        "week_number": 3,
-        "sequence": 3,
-        "title": "DESIGN THE STRATEGY",
-        "strategic_question": (
-            "If this is our choice, how will it actually work?"
-        ),
-        "description": (
-            "Convert the selected possibility into an integrated strategy "
-            "and an execution architecture credible enough to survive "
-            "contact with the company’s real constraints."
-        ),
-    },
-    {
-        "week_number": 4,
-        "sequence": 4,
-        "title": "BUILD THE CASE FOR ACTION",
-        "strategic_question": "Why should the company believe us?",
-        "description": None,
-    },
 )
 
 
@@ -165,33 +119,13 @@ def seed_dlif() -> None:
             phase.is_active = True
             print(f"  * Existing Phase: {phase.name}")
 
-        for week_spec in WEEKS_SPEC:
-            week = db.scalars(
-                select(Week).where(
-                    Week.phase_id == phase.id,
-                    Week.week_number == week_spec["week_number"],
-                )
-            ).first()
-            if not week:
-                week = Week(
-                    phase_id=phase.id,
-                    week_number=week_spec["week_number"],
-                    sequence=week_spec["sequence"],
-                    title=week_spec["title"],
-                    strategic_question=week_spec["strategic_question"],
-                    description=week_spec["description"],
-                )
-                db.add(week)
-                db.flush()
-                print(f"  + Created Week {week.week_number}: {week.title}")
-            else:
-                week.sequence = week_spec["sequence"]
-                week.title = week_spec["title"]
-                week.strategic_question = week_spec["strategic_question"]
-                week.description = week_spec["description"]
-                print(f"  * Existing Week {week.week_number}: {week.title}")
-
         initialization = initialize_discover_sessions_for_cohort(db, cohort)
+        for week_number in initialization.created_week_numbers:
+            print(f"  + Created canonical Week {week_number}")
+        for week_number in initialization.synced_week_numbers:
+            print(f"  ~ Synced canonical Week {week_number}")
+        for week_number in initialization.unchanged_week_numbers:
+            print(f"  * Unchanged canonical Week {week_number}")
         for session_number in initialization.created_session_numbers:
             print(f"  + Created canonical Session {session_number}")
         for session_number in initialization.synced_session_numbers:

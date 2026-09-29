@@ -169,6 +169,68 @@ def cleanup(
     db.commit()
 
 
+def test_admin_list_sessions_uses_curriculum_order_not_schedule(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+    cohort = create_cohort(db, program, "SESSION-ORDER")
+    phase = create_phase(db, program)
+    now = datetime.now(timezone.utc)
+    session_specs = (
+        (13, 13, None),
+        (2, 2, None),
+        (0, 0, None),
+        (12, 12, now - timedelta(days=2)),
+        (3, 3, now + timedelta(days=1)),
+        (1, 1, now + timedelta(days=3)),
+    )
+
+    try:
+        db.add_all(
+            [
+                DBSession(
+                    cohort_id=cohort.id,
+                    phase_id=phase.id,
+                    week_id=None,
+                    session_number=session_number,
+                    session_type=(
+                        SessionType.INDUCTION
+                        if session_number == 0
+                        else SessionType.LEARN_WORK
+                    ),
+                    title=f"Session {session_number}",
+                    start_at=start_at,
+                    end_at=(
+                        start_at + timedelta(hours=2)
+                        if start_at
+                        else None
+                    ),
+                    status=SessionStatus.SCHEDULED,
+                    sequence=sequence,
+                    is_unlocked=False,
+                    submission_enabled=False,
+                )
+                for session_number, sequence, start_at in session_specs
+            ]
+        )
+        db.commit()
+
+        response = client.get(
+            "/api/v1/admin/sessions",
+            params={"cohort_id": str(cohort.id)},
+            headers=admin_headers,
+        )
+
+        assert response.status_code == 200
+        assert [
+            item["session_number"] for item in response.json()
+        ] == [0, 1, 2, 3, 12, 13]
+    finally:
+        cleanup(db, programs=[program])
+
+
 def test_admin_add_fellow_to_team(
     client: TestClient,
     admin_headers: dict[str, str],

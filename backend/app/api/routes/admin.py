@@ -670,9 +670,7 @@ def list_sessions(
         )
     ),
 ):
-    q = select(DBSession).order_by(
-        DBSession.start_at
-    )
+    q = select(DBSession)
 
     if cohort_id:
         q = q.where(
@@ -682,6 +680,18 @@ def list_sessions(
     if week_id:
         q = q.where(
             DBSession.week_id == week_id
+        )
+
+    if cohort_id:
+        q = q.order_by(
+            DBSession.sequence.asc(),
+            DBSession.session_number.asc(),
+        )
+    else:
+        q = q.order_by(
+            DBSession.cohort_id.asc(),
+            DBSession.sequence.asc(),
+            DBSession.session_number.asc(),
         )
 
     sessions = db.scalars(q).all()
