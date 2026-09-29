@@ -48,13 +48,23 @@ export function SessionModal({
   onSaved,
 }: SessionModalProps) {
   const isEdit = Boolean(session);
+  const initialCohortId = session?.cohort_id ?? cohorts[0]?.id ?? "";
+  const initialCohort = cohorts.find(
+    (cohort) => cohort.id === initialCohortId
+  );
+  const initialPhaseId =
+    session?.phase_id ??
+    phases.find(
+      (phase) => phase.program_id === initialCohort?.program_id
+    )?.id ??
+    "";
 
   const [cohortId, setCohortId] = React.useState(
-    session?.cohort_id ?? cohorts[0]?.id ?? ""
+    initialCohortId
   );
 
   const [phaseId, setPhaseId] = React.useState(
-    session?.phase_id ?? phases[0]?.id ?? ""
+    initialPhaseId
   );
 
   const [weekId, setWeekId] = React.useState(
@@ -113,12 +123,30 @@ export function SessionModal({
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
-  const filteredWeeks = weeks.filter(
-    (week) => week.phase_id === phaseId
+  const selectedCohort = cohorts.find(
+    (cohort) => cohort.id === cohortId
   );
+  const filteredPhases = selectedCohort
+    ? phases.filter(
+        (phase) => phase.program_id === selectedCohort.program_id
+      )
+    : [];
+  const selectedPhase = filteredPhases.find(
+    (phase) => phase.id === phaseId
+  );
+  const filteredWeeks = selectedPhase
+    ? weeks.filter((week) => week.phase_id === selectedPhase.id)
+    : [];
 
   async function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+
+    if (!selectedCohort || !selectedPhase) {
+      setError(
+        "Select a Phase that belongs to the selected Cohort's Program."
+      );
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -213,7 +241,28 @@ export function SessionModal({
               required
               disabled={isEdit}
               value={cohortId}
-              onChange={(e) => setCohortId(e.target.value)}
+              onChange={(e) => {
+                const nextCohortId = e.target.value;
+                const nextCohort = cohorts.find(
+                  (cohort) => cohort.id === nextCohortId
+                );
+                const nextPhases = nextCohort
+                  ? phases.filter(
+                      (phase) =>
+                        phase.program_id === nextCohort.program_id
+                    )
+                  : [];
+
+                setCohortId(nextCohortId);
+                setPhaseId((currentPhaseId) =>
+                  nextPhases.some(
+                    (phase) => phase.id === currentPhaseId
+                  )
+                    ? currentPhaseId
+                    : nextPhases[0]?.id ?? ""
+                );
+                setWeekId("");
+              }}
               className="w-full px-3 py-2.5 rounded-xl border"
             >
               <option value="">Select Cohort</option>
@@ -243,7 +292,7 @@ export function SessionModal({
             >
               <option value="">Select Phase</option>
 
-              {phases.map((phase) => (
+              {filteredPhases.map((phase) => (
                 <option key={phase.id} value={phase.id}>
                   {phase.name} ({phase.code})
                 </option>
@@ -468,7 +517,7 @@ export function SessionModal({
             disabled={
               saving ||
               !cohortId ||
-              !phaseId ||
+              !selectedPhase ||
               !title.trim() ||
               !startAt ||
               !endAt
