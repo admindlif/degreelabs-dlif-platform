@@ -119,22 +119,15 @@ class Settings(BaseSettings):
                 "EMAIL_BACKEND is 'smtp'."
             )
 
-        if self.google_meet_enabled and not (
-            self.google_oauth_client_file and self.google_oauth_token_file
-        ):
+        if (
+            self.google_meet_enabled
+            or self.google_calendar_enabled
+        ) and not self.google_oauth_token_file:
             raise ValueError(
-                "Google Meet requires GOOGLE_OAUTH_CLIENT_FILE and "
+                "Google Calendar/Meet integration requires "
                 "GOOGLE_OAUTH_TOKEN_FILE."
             )
 
-        if self.google_calendar_enabled and not (
-            self.google_service_account_file
-            and self.google_workspace_organizer_email
-        ):
-            raise ValueError(
-                "Google Calendar requires GOOGLE_SERVICE_ACCOUNT_FILE and "
-                "GOOGLE_WORKSPACE_ORGANIZER_EMAIL."
-            )
 
         return self
 
