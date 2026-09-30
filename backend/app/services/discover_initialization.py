@@ -102,7 +102,7 @@ CANONICAL_DISCOVER_SESSIONS = (
     CanonicalDiscoverSession(
         3,
         SessionType.OUTPUT_REVIEW,
-        "Discovery Review",
+        "Business Diagnosis & Problem Framing Pack Review",
         "Revised Business Diagnosis & Problem Framing Pack after mentor "
         "challenge.",
         1,

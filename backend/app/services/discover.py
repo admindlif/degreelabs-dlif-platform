@@ -194,18 +194,42 @@ def get_discover_overview(db: Session, current_user: User) -> DiscoverOverviewRe
         )
 
     sessions = get_sessions_for_cohort(db, cohort.id, phase.id)
-    total_sessions = len(sessions)
-    completed_sessions = sum(1 for s in sessions if s.status == SessionStatus.COMPLETED)
-    percentage = round((completed_sessions / total_sessions) * 100) if total_sessions > 0 else 0
+    curriculum_sessions = sorted(
+        (
+            session
+            for session in sessions
+            if 1 <= session.session_number <= 12
+        ),
+        key=lambda session: session.session_number,
+    )
+    total_sessions = len(curriculum_sessions)
+    completed_sessions = sum(
+        1
+        for session in curriculum_sessions
+        if session.status == SessionStatus.COMPLETED
+    )
+    percentage = (
+        round((completed_sessions / total_sessions) * 100)
+        if total_sessions > 0
+        else 0
+    )
 
     next_session_db = get_next_session_for_cohort(db, cohort.id, phase.id)
     next_session_summary = _to_session_summary(next_session_db) if next_session_db else None
 
-    # Derive current week based on next session's week or default to 1
+    # Curriculum progress is independent from the operational next Session.
     current_week = 1
-    if next_session_db and next_session_db.week:
-        current_week = next_session_db.week.week_number
-    elif completed_sessions == total_sessions and total_sessions > 0:
+    first_incomplete_session = next(
+        (
+            session
+            for session in curriculum_sessions
+            if session.status != SessionStatus.COMPLETED
+        ),
+        None,
+    )
+    if first_incomplete_session and first_incomplete_session.week:
+        current_week = first_incomplete_session.week.week_number
+    elif total_sessions == 12 and completed_sessions == 12:
         current_week = phase.duration_weeks
 
     progress = DiscoverProgress(

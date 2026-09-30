@@ -186,7 +186,7 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
           {
             id: "s3",
             number: "Session 3: Output + Review (Gate)",
-            title: "Discovery Review",
+            title: "Business Diagnosis & Problem Framing Pack Review",
             status: "upcoming",
             date: "Sunday, Oct 15",
             duration: "1h 30m",

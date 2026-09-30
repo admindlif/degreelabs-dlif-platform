@@ -78,7 +78,7 @@ export const DISCOVER_CURRICULUM = {
       { id: "s0", number: "Session 0", title: "DLIF Onboarding & Program Setup" },
       { id: "s1", number: "Session 1: Learn + Work", title: "Business Context & Evidence" },
       { id: "s2", number: "Session 2: Learn + Work", title: "Problem Framing & Diagnosis" },
-      { id: "s3", number: "Session 3: Output + Review (Gate)", title: "Discovery Review" },
+      { id: "s3", number: "Session 3: Output + Review (Gate)", title: "Business Diagnosis & Problem Framing Pack Review" },
     ],
   },
   week2: {

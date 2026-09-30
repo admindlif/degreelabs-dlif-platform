@@ -418,8 +418,123 @@ def test_discover_overview(student_client: TestClient, fellow_user: User, setup_
     assert data["cohort"]["code"] == "2026-A"
     assert "progress" in data
     assert data["progress"]["total_weeks"] == 4
-    assert data["progress"]["total_sessions"] >= 12
+    assert data["progress"]["total_sessions"] == 12
     assert "next_session" in data
+
+
+def test_discover_overview_uses_only_canonical_curriculum_progress(
+    db: Session,
+    student_client: TestClient,
+    fellow_user: User,
+    setup_fellow_cohort,
+):
+    cohort = setup_fellow_cohort["cohort"]
+    phase = setup_fellow_cohort["phase"]
+    sessions = {
+        session.session_number: session
+        for session in db.query(DBSession)
+        .filter(
+            DBSession.cohort_id == cohort.id,
+            DBSession.phase_id == phase.id,
+            DBSession.session_number.between(0, 12),
+        )
+        .all()
+    }
+    assert set(sessions) == set(range(13))
+
+    original_values = {
+        number: (session.status, session.end_at)
+        for number, session in sessions.items()
+    }
+    extra_session = DBSession(
+        cohort_id=cohort.id,
+        phase_id=phase.id,
+        session_number=13,
+        session_type=SessionType.LEARN_WORK,
+        title="Additional Session 13",
+        status=SessionStatus.COMPLETED,
+        sequence=13,
+    )
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+    headers = {"Authorization": f"Bearer {token}"}
+
+    def get_overview():
+        response = student_client.get(
+            "/api/v1/fellow/discover/overview",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        return response.json()
+
+    try:
+        for session in sessions.values():
+            session.status = SessionStatus.SCHEDULED
+        sessions[1].end_at = datetime.now(timezone.utc) - timedelta(days=1)
+        db.add(extra_session)
+        db.commit()
+
+        overview = get_overview()
+        assert overview["progress"] == {
+            "current_week": 1,
+            "total_weeks": 4,
+            "percentage": 0,
+            "completed_sessions": 0,
+            "total_sessions": 12,
+        }
+        assert overview["next_session"]["session_number"] == 0
+
+        sessions[0].status = SessionStatus.COMPLETED
+        db.commit()
+        overview = get_overview()
+        assert overview["progress"]["completed_sessions"] == 0
+        assert overview["progress"]["percentage"] == 0
+        assert overview["progress"]["current_week"] == 1
+
+        for number in range(1, 4):
+            sessions[number].status = SessionStatus.COMPLETED
+        db.commit()
+        overview = get_overview()
+        assert overview["progress"]["completed_sessions"] == 3
+        assert overview["progress"]["total_sessions"] == 12
+        assert overview["progress"]["percentage"] == 25
+        assert overview["progress"]["current_week"] == 2
+
+        for number in range(4, 7):
+            sessions[number].status = SessionStatus.COMPLETED
+        db.commit()
+        overview = get_overview()
+        assert overview["progress"]["completed_sessions"] == 6
+        assert overview["progress"]["percentage"] == 50
+        assert overview["progress"]["current_week"] == 3
+
+        for number in range(7, 10):
+            sessions[number].status = SessionStatus.COMPLETED
+        db.commit()
+        overview = get_overview()
+        assert overview["progress"]["completed_sessions"] == 9
+        assert overview["progress"]["percentage"] == 75
+        assert overview["progress"]["current_week"] == 4
+
+        for number in range(10, 13):
+            sessions[number].status = SessionStatus.COMPLETED
+        db.commit()
+        overview = get_overview()
+        assert overview["progress"]["completed_sessions"] == 12
+        assert overview["progress"]["total_sessions"] == 12
+        assert overview["progress"]["percentage"] == 100
+        assert overview["progress"]["current_week"] == 4
+    finally:
+        db.rollback()
+        existing_extra = db.get(DBSession, extra_session.id)
+        if existing_extra:
+            db.delete(existing_extra)
+        for number, (original_status, original_end_at) in original_values.items():
+            sessions[number].status = original_status
+            sessions[number].end_at = original_end_at
+        db.commit()
 
 
 def test_discover_weeks_ordering(student_client: TestClient, fellow_user: User, setup_fellow_cohort):
@@ -620,7 +735,7 @@ def test_unlocked_session_content_is_available(
         .one()
     )
 
-    session.title = "Discovery Review"
+    session.title = "Business Diagnosis & Problem Framing Pack Review"
     session.description = "Session 3 description"
 
     session.meeting_url = (
@@ -666,7 +781,7 @@ def test_unlocked_session_content_is_available(
     assert data["session_number"] == 3
     assert data["is_unlocked"] is True
 
-    assert data["title"] == "Discovery Review"
+    assert data["title"] == "Business Diagnosis & Problem Framing Pack Review"
 
     assert (
         data["meeting_url"]

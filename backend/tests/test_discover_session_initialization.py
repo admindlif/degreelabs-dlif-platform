@@ -167,6 +167,12 @@ def test_initializer_creates_s0_through_s12_once_and_is_idempotent(
     assert [item.description for item in sessions] == [
         spec.description for spec in CANONICAL_DISCOVER_SESSIONS
     ]
+    session_three = next(item for item in sessions if item.session_number == 3)
+    assert session_three.title == (
+        "Business Diagnosis & Problem Framing Pack Review"
+    )
+    assert session_three.session_type == SessionType.OUTPUT_REVIEW
+    assert session_three.week_id == discover_foundation["weeks"][1].id
 
     for item in sessions:
         if item.session_number <= 2:
@@ -548,7 +554,7 @@ def test_fellow_list_returns_all_sessions_and_masks_locked_summary(
         )
     )
     assert locked is not None
-    locked.title = "Secret Discovery Review"
+    locked.title = "Secret Session 3 Review"
     locked.description = "Secret description"
     locked.start_at = datetime.now(timezone.utc)
     locked.end_at = locked.start_at + timedelta(hours=2)

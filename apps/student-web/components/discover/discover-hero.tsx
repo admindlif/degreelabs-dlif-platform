@@ -66,16 +66,25 @@ export function DiscoverHero({
               >
                 {Array.from({ length: progress.total_weeks }).map((_, index) => {
                   const weekNumber = index + 1;
-                  const reached = weekNumber <= progress.current_week;
+                  const allCompleted = progress.percentage === 100;
+                  const completed = allCompleted || weekNumber < progress.current_week;
+                  const current = !allCompleted && weekNumber === progress.current_week;
+                  const state = completed
+                    ? "Completed"
+                    : current
+                      ? "Current"
+                      : "Upcoming";
 
                   return (
                     <div
                       key={weekNumber}
-                      className={`h-2 rounded-full ${reached
-                        ? "bg-[var(--color-brand-orange)]"
-                        : "bg-[var(--color-border-default)]"
+                      className={`h-2 rounded-full border ${completed
+                        ? "border-[var(--color-brand-orange)] bg-[var(--color-brand-orange)]"
+                        : current
+                          ? "border-[var(--color-brand-orange)] bg-[var(--color-brand-orange-subtle)]"
+                          : "border-[var(--color-border-default)] bg-[var(--color-border-default)]"
                       }`}
-                      title={`Week ${weekNumber}: ${reached ? "Reached" : "Upcoming"}`}
+                      title={`Week ${weekNumber}: ${state}`}
                     />
                   );
                 })}
@@ -84,9 +93,13 @@ export function DiscoverHero({
               <div className="flex flex-wrap items-center justify-between gap-2 text-[11px] text-[var(--color-text-muted)]">
                 <span className="flex items-center gap-1">
                   <CheckCircle2 className="h-3.5 w-3.5 text-[var(--color-success)]" />
-                  {progress.completed_sessions} Sessions done
+                  {progress.completed_sessions} of {progress.total_sessions} Sessions done
                 </span>
-                {nextSession && <span>Next: Session {nextSession.session_number}</span>}
+                {nextSession && (
+                  <span>
+                    {nextSession.session_number === 0 ? "Induction" : "Next"}: Session {nextSession.session_number}
+                  </span>
+                )}
               </div>
             </>
           ) : (
