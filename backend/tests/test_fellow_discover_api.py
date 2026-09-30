@@ -36,6 +36,7 @@ from app.models.submission import TeamSubmission
 from app.models.feedback import SubmissionFeedback
 from app.models.team import (
     Team,
+    TeamChallengeResource,
     TeamMembership,
     TeamMemberRole,
 )
@@ -1943,3 +1944,180 @@ def test_locked_session_feedback_is_forbidden(
     db.delete(feedback)
     db.delete(submission)
     db.commit()
+
+def test_fellow_can_view_own_company_challenge(
+    student_client: TestClient,
+    fellow_user: User,
+    setup_submission_team,
+    db: Session,
+):
+    team = setup_submission_team["team"]
+
+    team.company_name = "Cikitsa"
+    team.company_overview = (
+        "Healthcare company focused on patient outcomes."
+    )
+    team.company_challenge = (
+        "Improve patient engagement"
+    )
+    team.challenge_description = (
+        "Explore ways to improve patient engagement "
+        "through a stronger service experience."
+    )
+
+    resource_a = TeamChallengeResource(
+        team_id=team.id,
+        title="Company Brief",
+        resource_type="link",
+        url="https://drive.google.com/file/d/company-brief/view",
+        is_downloadable=True,
+        sequence=2,
+    )
+
+    resource_b = TeamChallengeResource(
+        team_id=team.id,
+        title="Industry Brief",
+        resource_type="link",
+        url="https://docs.google.com/document/d/industry-brief",
+        is_downloadable=False,
+        sequence=1,
+    )
+
+    db.add_all(
+        [
+            resource_a,
+            resource_b,
+        ]
+    )
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    response = student_client.get(
+        "/api/v1/fellow/company-challenge",
+        headers={
+            "Authorization": f"Bearer {token}",
+        },
+    )
+
+    assert response.status_code == 200
+
+    data = response.json()
+
+    assert data["team_id"] == str(team.id)
+    assert data["team_name"] == team.name
+
+    assert data["company_name"] == "Cikitsa"
+    assert (
+        data["company_overview"]
+        == "Healthcare company focused on patient outcomes."
+    )
+
+    assert (
+        data["company_challenge"]
+        == "Improve patient engagement"
+    )
+
+    assert len(data["resources"]) == 2
+
+    assert [
+        item["title"]
+        for item in data["resources"]
+    ] == [
+        "Industry Brief",
+        "Company Brief",
+    ]
+
+
+def test_fellow_company_challenge_isolated_by_team(
+    student_client: TestClient,
+    fellow_user: User,
+    setup_submission_team,
+    db: Session,
+):
+    own_team = setup_submission_team["team"]
+    cohort = setup_submission_team["cohort"]
+
+    own_team.company_name = "Own Company"
+    own_team.company_challenge = "Own Challenge"
+
+    own_resource = TeamChallengeResource(
+        team_id=own_team.id,
+        title="Own Team Brief",
+        resource_type="link",
+        url="https://drive.google.com/file/d/own-team/view",
+        is_downloadable=False,
+        sequence=1,
+    )
+
+    other_team = Team(
+        cohort_id=cohort.id,
+        name=f"Other Team {uuid4().hex[:8]}",
+        company_name="Private Company",
+        company_challenge="Private Challenge",
+        is_active=True,
+    )
+
+    db.add(other_team)
+    db.flush()
+
+    other_resource = TeamChallengeResource(
+        team_id=other_team.id,
+        title="Private Team Brief",
+        resource_type="link",
+        url="https://drive.google.com/file/d/private-team/view",
+        is_downloadable=False,
+        sequence=1,
+    )
+
+    db.add_all(
+        [
+            own_resource,
+            other_resource,
+        ]
+    )
+    db.commit()
+
+    token = create_access_token(
+        subject=str(fellow_user.id),
+        role=fellow_user.role.value,
+    )
+
+    try:
+        response = student_client.get(
+            (
+                "/api/v1/fellow/company-challenge"
+                f"?team_id={other_team.id}"
+            ),
+            headers={
+                "Authorization": f"Bearer {token}",
+            },
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["team_id"] == str(own_team.id)
+        assert data["company_name"] == "Own Company"
+        assert (
+            data["company_challenge"]
+            == "Own Challenge"
+        )
+
+        titles = [
+            item["title"]
+            for item in data["resources"]
+        ]
+
+        assert "Own Team Brief" in titles
+        assert "Private Team Brief" not in titles
+
+        assert data["company_name"] != "Private Company"
+
+    finally:
+        db.delete(other_team)
+        db.commit()

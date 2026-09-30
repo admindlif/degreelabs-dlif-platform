@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 from enum import Enum
 from uuid import UUID, uuid4
 
@@ -8,6 +8,7 @@ from sqlalchemy import (
     Enum as SQLEnum,
     ForeignKey,
     Index,
+    Integer,
     String,
     UniqueConstraint,
     func,
@@ -63,6 +64,16 @@ class Team(Base):
         nullable=True,
     )  # e.g. "SK Innovation"
 
+    company_overview: Mapped[str | None] = mapped_column(
+        String(3000),
+        nullable=True,
+    )
+
+    challenge_description: Mapped[str | None] = mapped_column(
+        String(5000),
+        nullable=True,
+    )
+
     is_active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
@@ -96,6 +107,12 @@ class Team(Base):
         cascade="all, delete-orphan",
     )
 
+    challenge_resources = relationship(
+        "TeamChallengeResource",
+        back_populates="team",
+        cascade="all, delete-orphan",
+    )
+
 
 class TeamMembership(Base):
     """
@@ -124,6 +141,7 @@ class TeamMembership(Base):
             ),
         ),
     )
+
     id: Mapped[UUID] = mapped_column(
         PostgreSQLUUID(as_uuid=True),
         primary_key=True,
@@ -155,7 +173,9 @@ class TeamMembership(Base):
         SQLEnum(
             TeamMemberRole,
             name="team_member_role",
-            values_callable=lambda enum_cls: [item.value for item in enum_cls],
+            values_callable=lambda enum_cls: [
+                item.value for item in enum_cls
+            ],
         ),
         nullable=False,
         default=TeamMemberRole.MEMBER,
@@ -168,5 +188,98 @@ class TeamMembership(Base):
     )
 
     # Relationships
-    team = relationship("Team", back_populates="members")
-    user = relationship("User", backref="team_memberships")
+    team = relationship(
+        "Team",
+        back_populates="members",
+    )
+
+    user = relationship(
+        "User",
+        backref="team_memberships",
+    )
+
+
+class TeamChallengeResource(Base):
+    """
+    Reference material attached to a Team's company challenge.
+
+    V1 supports external links such as Google Drive/Docs.
+    File storage metadata is included so direct uploads can later
+    be backed by object storage such as Cloudflare R2.
+    """
+
+    __tablename__ = "team_challenge_resources"
+
+    id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        primary_key=True,
+        default=uuid4,
+    )
+
+    team_id: Mapped[UUID] = mapped_column(
+        PostgreSQLUUID(as_uuid=True),
+        ForeignKey("teams.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
+    title: Mapped[str] = mapped_column(
+        String(300),
+        nullable=False,
+    )
+
+    resource_type: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="link",
+    )
+
+    url: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
+    storage_key: Mapped[str | None] = mapped_column(
+        String(1000),
+        nullable=True,
+    )
+
+    file_name: Mapped[str | None] = mapped_column(
+        String(300),
+        nullable=True,
+    )
+
+    mime_type: Mapped[str | None] = mapped_column(
+        String(150),
+        nullable=True,
+    )
+
+    is_downloadable: Mapped[bool] = mapped_column(
+        Boolean,
+        nullable=False,
+        default=False,
+    )
+
+    sequence: Mapped[int] = mapped_column(
+        Integer,
+        nullable=False,
+        default=0,
+    )
+
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+    )
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+
+    team = relationship(
+        "Team",
+        back_populates="challenge_resources",
+    )

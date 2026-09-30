@@ -1331,3 +1331,305 @@ def test_session_delete_deletes_google_calendar_event(
             db,
             programs=[program],
         )
+
+def test_admin_can_update_team_company_challenge(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+    cohort = create_cohort(
+        db,
+        program,
+        "COMPANY-CHALLENGE",
+    )
+    team = create_team(
+        db,
+        cohort,
+    )
+
+    try:
+        response = client.put(
+            f"/api/v1/admin/teams/{team.id}/challenge",
+            headers=admin_headers,
+            json={
+                "company_name": "Cikitsa",
+                "company_overview": (
+                    "Healthcare company overview."
+                ),
+                "company_challenge": (
+                    "Improve patient engagement"
+                ),
+                "challenge_description": (
+                    "Explore ways to improve "
+                    "patient engagement."
+                ),
+            },
+        )
+
+        assert response.status_code == 200
+
+        data = response.json()
+
+        assert data["team_id"] == str(team.id)
+        assert data["company_name"] == "Cikitsa"
+        assert (
+            data["company_overview"]
+            == "Healthcare company overview."
+        )
+        assert (
+            data["company_challenge"]
+            == "Improve patient engagement"
+        )
+        assert (
+            data["challenge_description"]
+            == "Explore ways to improve patient engagement."
+        )
+
+        db.refresh(team)
+
+        assert team.company_name == "Cikitsa"
+        assert (
+            team.company_challenge
+            == "Improve patient engagement"
+        )
+
+        clear_response = client.put(
+            f"/api/v1/admin/teams/{team.id}/challenge",
+            headers=admin_headers,
+            json={
+                "company_overview": None,
+            },
+        )
+
+        assert clear_response.status_code == 200
+        assert (
+            clear_response.json()["company_overview"]
+            is None
+        )
+
+    finally:
+        cleanup(
+            db,
+            programs=[program],
+        )
+
+
+def test_admin_can_manage_team_challenge_resources(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+    cohort = create_cohort(
+        db,
+        program,
+        "CHALLENGE-RESOURCE",
+    )
+    team = create_team(
+        db,
+        cohort,
+    )
+
+    try:
+        create_response = client.post(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team.id}/challenge/resources"
+            ),
+            headers=admin_headers,
+            json={
+                "title": "Company Brief",
+                "resource_type": "link",
+                "url": (
+                    "https://drive.google.com/"
+                    "file/d/example/view"
+                ),
+                "is_downloadable": True,
+                "sequence": 1,
+            },
+        )
+
+        assert create_response.status_code == 201
+
+        created = create_response.json()
+        resource_id = created["id"]
+
+        assert created["team_id"] == str(team.id)
+        assert created["title"] == "Company Brief"
+        assert created["resource_type"] == "link"
+        assert created["sequence"] == 1
+
+        list_response = client.get(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team.id}/challenge/resources"
+            ),
+            headers=admin_headers,
+        )
+
+        assert list_response.status_code == 200
+
+        resources = list_response.json()
+
+        assert len(resources) == 1
+        assert resources[0]["id"] == resource_id
+
+        update_response = client.put(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team.id}/challenge/resources/"
+                f"{resource_id}"
+            ),
+            headers=admin_headers,
+            json={
+                "title": "Updated Company Brief",
+                "sequence": 2,
+            },
+        )
+
+        assert update_response.status_code == 200
+
+        updated = update_response.json()
+
+        assert (
+            updated["title"]
+            == "Updated Company Brief"
+        )
+        assert updated["sequence"] == 2
+
+        delete_response = client.delete(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team.id}/challenge/resources/"
+                f"{resource_id}"
+            ),
+            headers=admin_headers,
+        )
+
+        assert delete_response.status_code == 204
+
+        final_list_response = client.get(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team.id}/challenge/resources"
+            ),
+            headers=admin_headers,
+        )
+
+        assert final_list_response.status_code == 200
+        assert final_list_response.json() == []
+
+    finally:
+        cleanup(
+            db,
+            programs=[program],
+        )
+
+
+def test_team_challenge_resource_cannot_be_changed_from_other_team(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+    cohort = create_cohort(
+        db,
+        program,
+        "RESOURCE-ISOLATION",
+    )
+
+    team_a = create_team(
+        db,
+        cohort,
+    )
+    team_b = create_team(
+        db,
+        cohort,
+    )
+
+    try:
+        create_response = client.post(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team_a.id}/challenge/resources"
+            ),
+            headers=admin_headers,
+            json={
+                "title": "Team A Brief",
+                "url": "https://docs.google.com/document/d/example",
+            },
+        )
+
+        assert create_response.status_code == 201
+
+        resource_id = create_response.json()["id"]
+
+        update_response = client.put(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team_b.id}/challenge/resources/"
+                f"{resource_id}"
+            ),
+            headers=admin_headers,
+            json={
+                "title": "Should Not Change",
+            },
+        )
+
+        assert update_response.status_code == 404
+
+        delete_response = client.delete(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team_b.id}/challenge/resources/"
+                f"{resource_id}"
+            ),
+            headers=admin_headers,
+        )
+
+        assert delete_response.status_code == 404
+
+    finally:
+        cleanup(
+            db,
+            programs=[program],
+        )
+
+
+def test_team_challenge_resource_rejects_invalid_url(
+    client: TestClient,
+    admin_headers: dict[str, str],
+    db: Session,
+):
+    program = create_program(db)
+    cohort = create_cohort(
+        db,
+        program,
+        "RESOURCE-URL",
+    )
+    team = create_team(
+        db,
+        cohort,
+    )
+
+    try:
+        response = client.post(
+            (
+                f"/api/v1/admin/teams/"
+                f"{team.id}/challenge/resources"
+            ),
+            headers=admin_headers,
+            json={
+                "title": "Invalid Resource",
+                "url": "javascript:alert(1)",
+            },
+        )
+
+        assert response.status_code == 422
+
+    finally:
+        cleanup(
+            db,
+            programs=[program],
+        )

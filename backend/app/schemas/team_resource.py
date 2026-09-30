@@ -34,3 +34,28 @@ class ResourceResponse(BaseModel):
     sequence: int
 
     model_config = {"from_attributes": True}
+
+class TeamChallengeResourceResponse(BaseModel):
+    id: UUID
+    title: str
+    resource_type: str
+    url: str | None
+    is_downloadable: bool
+    sequence: int
+
+    model_config = {"from_attributes": True}
+
+
+class CompanyChallengeResponse(BaseModel):
+    team_id: UUID
+    team_name: str
+
+    company_name: str | None
+    company_overview: str | None
+
+    company_challenge: str | None
+    challenge_description: str | None
+
+    resources: list[TeamChallengeResourceResponse]
+
+    model_config = {"from_attributes": True}

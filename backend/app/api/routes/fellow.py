@@ -12,7 +12,11 @@ from app.schemas.discover import (
     SessionSummary,
 )
 from app.schemas.fellow_context import FellowContextResponse
-from app.schemas.team_resource import ResourceResponse, TeamResponse
+from app.schemas.team_resource import (
+    CompanyChallengeResponse,
+    ResourceResponse,
+    TeamResponse,
+)
 from app.services.discover import (
     get_discover_overview,
     get_discover_weeks,
@@ -24,7 +28,10 @@ from app.services.resource import (
     get_fellow_resources,
     get_fellow_session_resources,
 )
-from app.services.team import get_fellow_team
+from app.services.team import (
+    get_fellow_company_challenge,
+    get_fellow_team,
+)
 from app.schemas.submission import (
     SessionSubmissionResponse,
     TeamSubmissionUpsertRequest,
@@ -198,6 +205,22 @@ def get_session_feedback(
         session_id=session_id,
     )
 
+
+@router.get(
+    "/company-challenge",
+    response_model=CompanyChallengeResponse,
+    summary="Get the authenticated Fellow's Company Challenge",
+)
+def get_company_challenge(
+    current_user: User = Depends(
+        require_fellow_portal
+    ),
+    db: Session = Depends(get_db),
+) -> CompanyChallengeResponse:
+    return get_fellow_company_challenge(
+        db,
+        current_user,
+    )
 @router.get(
     "/team",
     response_model=TeamResponse,

@@ -42,11 +42,23 @@ export function TeamModal({
       team?.company_name ?? ""
     );
 
+  const [companyOverview, setCompanyOverview] =
+    React.useState(
+      team?.company_overview ?? ""
+    );
+
   const [
     companyChallenge,
     setCompanyChallenge,
   ] = React.useState(
     team?.company_challenge ?? ""
+  );
+
+  const [
+    challengeDescription,
+    setChallengeDescription,
+  ] = React.useState(
+    team?.challenge_description ?? ""
   );
 
   const [isActive, setIsActive] =
@@ -89,8 +101,14 @@ export function TeamModal({
               companyName.trim() ||
               undefined,
 
+            company_overview: companyOverview.trim() ||
+              undefined,
+
             company_challenge:
               companyChallenge.trim() ||
+              undefined,
+
+            challenge_description: challengeDescription.trim() ||
               undefined,
 
             is_active: isActive,
@@ -106,8 +124,16 @@ export function TeamModal({
             companyName.trim() ||
             undefined,
 
+          company_overview:
+            companyOverview.trim() ||
+            undefined,
+
           company_challenge:
             companyChallenge.trim() ||
+            undefined,
+
+          challenge_description:
+            challengeDescription.trim() ||
             undefined,
 
           is_active: isActive,
@@ -219,9 +245,10 @@ export function TeamModal({
           </div>
 
 
+          {/* Company Name */}
           <div>
             <label className="block text-xs font-bold mb-1">
-              Company
+              Company Name
             </label>
 
             <input
@@ -237,24 +264,63 @@ export function TeamModal({
           </div>
 
 
+          {/* Company Overview */}
           <div>
             <label className="block text-xs font-bold mb-1">
-              Company Challenge
+              Company Overview
             </label>
 
             <textarea
-              rows={3}
+              rows={4}
+              value={companyOverview}
+              onChange={(event) =>
+                setCompanyOverview(
+                  event.target.value
+                )
+              }
+              placeholder="Brief overview of the company"
+              className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)]"
+            />
+          </div>
+
+
+          {/* Challenge Title */}
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Challenge Title
+            </label>
+
+            <input
               value={companyChallenge}
               onChange={(event) =>
                 setCompanyChallenge(
                   event.target.value
                 )
               }
-              placeholder="Company challenge"
+              placeholder="Challenge title"
               className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)]"
             />
           </div>
 
+
+          {/* Challenge Description */}
+          <div>
+            <label className="block text-xs font-bold mb-1">
+              Challenge Description
+            </label>
+
+            <textarea
+              rows={5}
+              value={challengeDescription}
+              onChange={(event) =>
+                setChallengeDescription(
+                  event.target.value
+                )
+              }
+              placeholder="Describe the Company Challenge"
+              className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)]"
+            />
+          </div>
 
           <label className="flex items-center gap-3 rounded-xl border border-[var(--color-border-default)] p-4 cursor-pointer">
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import {
+  BriefcaseBusiness,
   Compass,
   Users,
   Bell,
@@ -140,34 +141,39 @@ export function Sidebar({
       badgeVariant?: "blue";
     }>;
   }> = [
-    {
-      title: "Collaboration",
-      items: [
-        {
-          name: "My Team",
-          href: "/team",
-          icon: Users,
-          badge: teamName ?? undefined,
-          badgeVariant: "blue" as const,
-        },
-      ],
-    },
-    {
-      title: "Account",
-      items: [
-        {
-          name: "Notifications",
-          href: "/notifications",
-          icon: Bell,
-        },
-        {
-          name: "Profile & 2FA",
-          href: "/profile",
-          icon: ShieldCheck,
-        },
-      ],
-    },
-  ];
+      {
+        title: "Collaboration",
+        items: [
+          {
+            name: "Company Challenge",
+            href: "/company-challenge",
+            icon: BriefcaseBusiness,
+          },
+          {
+            name: "My Team",
+            href: "/team",
+            icon: Users,
+            badge: teamName ?? undefined,
+            badgeVariant: "blue" as const,
+          },
+        ],
+      },
+      {
+        title: "Account",
+        items: [
+          {
+            name: "Notifications",
+            href: "/notifications",
+            icon: Bell,
+          },
+          {
+            name: "Profile & 2FA",
+            href: "/profile",
+            icon: ShieldCheck,
+          },
+        ],
+      },
+    ];
 
 
   return (

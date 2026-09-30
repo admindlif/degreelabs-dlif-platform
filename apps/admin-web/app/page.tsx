@@ -78,6 +78,7 @@ import { ResourceModal } from "@/components/admin/resource-modal";
 import { CohortFellowsModal } from "@/components/admin/cohort-fellows-modal";
 import { TeamMembersModal } from "@/components/admin/team-members-modal";
 import { SubmissionFeedbackModal } from "@/components/admin/submission-feedback-modal";
+import { TeamChallengeResourcesModal } from "@/components/admin/team-challenge-resources-modal";
 
 type NavTab =
   | "Dashboard"
@@ -169,6 +170,12 @@ export default function AdminHomePage() {
     React.useState(false);
 
   const [selectedTeamForMembers, setSelectedTeamForMembers] =
+    React.useState<AdminTeam | null>(null);
+
+  const [showTeamChallengeResourcesModal, setShowTeamChallengeResourcesModal] =
+    React.useState(false);
+
+  const [selectedTeamForChallengeResources, setSelectedTeamForChallengeResources] =
     React.useState<AdminTeam | null>(null);
 
   const [showTeamModal, setShowTeamModal] =
@@ -388,8 +395,8 @@ export default function AdminHomePage() {
     sessionCohortFilter === "all"
       ? sessions
       : sessions.filter(
-          (session) => session.cohort_id === sessionCohortFilter
-        );
+        (session) => session.cohort_id === sessionCohortFilter
+      );
 
   React.useEffect(() => {
     if (!weeklyOutputSessionId) {
@@ -1565,6 +1572,17 @@ export default function AdminHomePage() {
                           <button
                             type="button"
                             onClick={() => {
+                              setSelectedTeamForChallengeResources(t);
+                              setShowTeamChallengeResourcesModal(true);
+                            }}
+                            className="px-3 py-2 rounded-lg border border-[var(--color-border-default)] text-xs font-bold hover:border-[var(--color-brand-blue)] hover:text-[var(--color-brand-blue)]"
+                          >
+                            Challenge Resources
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
                               setSelectedTeamForMembers(t);
                               setShowTeamMembersModal(true);
                             }}
@@ -2643,6 +2661,17 @@ export default function AdminHomePage() {
           }}
         />
       )}
+
+      {showTeamChallengeResourcesModal &&
+        selectedTeamForChallengeResources && (
+          <TeamChallengeResourcesModal
+            team={selectedTeamForChallengeResources}
+            onClose={() => {
+              setShowTeamChallengeResourcesModal(false);
+              setSelectedTeamForChallengeResources(null);
+            }}
+          />
+        )}
 
 
       {showTeamModal && (

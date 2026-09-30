@@ -187,8 +187,13 @@ export interface AdminTeam {
   id: string;
   cohort_id: string;
   name: string;
-  company_challenge: string | null;
+
   company_name: string | null;
+  company_overview: string | null;
+
+  company_challenge: string | null;
+  challenge_description: string | null;
+
   is_active: boolean;
   member_count: number;
 }
@@ -196,8 +201,13 @@ export interface AdminTeam {
 export interface TeamCreate {
   cohort_id: string;
   name: string;
-  company_challenge?: string;
-  company_name?: string;
+
+  company_name?: string | null;
+  company_overview?: string | null;
+
+  company_challenge?: string | null;
+  challenge_description?: string | null;
+
   is_active?: boolean;
 }
 
@@ -213,6 +223,33 @@ export interface TeamMember {
 
 export interface TeamDetail extends AdminTeam {
   members: TeamMember[];
+}
+
+export interface TeamChallengeUpdate {
+  company_name?: string | null;
+  company_overview?: string | null;
+  company_challenge?: string | null;
+  challenge_description?: string | null;
+}
+
+export interface TeamChallengeResource {
+  id: string;
+  team_id: string;
+  title: string;
+  resource_type: string;
+  url: string | null;
+  is_downloadable: boolean;
+  sequence: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TeamChallengeResourceCreate {
+  title: string;
+  resource_type?: "link";
+  url: string;
+  is_downloadable?: boolean;
+  sequence?: number;
 }
 
 export interface AdminResource {
@@ -501,6 +538,66 @@ export async function createTeam(data: TeamCreate): Promise<any> {
 
 export async function updateTeam(id: string, data: Partial<TeamCreate>): Promise<any> {
   return adminApiClient(`/api/v1/admin/teams/${id}`, { method: "PUT", body: JSON.stringify(data) });
+}
+
+export async function updateTeamChallenge(
+  teamId: string,
+  data: TeamChallengeUpdate
+): Promise<any> {
+  return adminApiClient(
+    `/api/v1/admin/teams/${teamId}/challenge`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function getTeamChallengeResources(
+  teamId: string
+): Promise<TeamChallengeResource[]> {
+  return adminApiClient<TeamChallengeResource[]>(
+    `/api/v1/admin/teams/${teamId}/challenge/resources`
+  );
+}
+
+export async function createTeamChallengeResource(
+  teamId: string,
+  data: TeamChallengeResourceCreate
+): Promise<TeamChallengeResource> {
+  return adminApiClient<TeamChallengeResource>(
+    `/api/v1/admin/teams/${teamId}/challenge/resources`,
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function updateTeamChallengeResource(
+  teamId: string,
+  resourceId: string,
+  data: Partial<TeamChallengeResourceCreate>
+): Promise<TeamChallengeResource> {
+  return adminApiClient<TeamChallengeResource>(
+    `/api/v1/admin/teams/${teamId}/challenge/resources/${resourceId}`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function deleteTeamChallengeResource(
+  teamId: string,
+  resourceId: string
+): Promise<void> {
+  await adminApiClient(
+    `/api/v1/admin/teams/${teamId}/challenge/resources/${resourceId}`,
+    {
+      method: "DELETE",
+    }
+  );
 }
 
 export async function deleteTeam(id: string): Promise<void> {

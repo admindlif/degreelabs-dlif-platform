@@ -277,14 +277,57 @@ class TeamCreate(BaseModel):
     company_challenge: Optional[str] = Field(None, max_length=300)
     company_name: Optional[str] = Field(None, max_length=200)
     is_active: bool = True
+    company_overview: Optional[str] = Field(
+        None,
+        max_length=3000,
+    )
+
+    challenge_description: Optional[str] = Field(
+        None,
+        max_length=5000,
+    )
 
 
 class TeamUpdate(BaseModel):
-    name: Optional[str] = Field(None, max_length=100)
-    company_challenge: Optional[str] = Field(None, max_length=300)
-    company_name: Optional[str] = Field(None, max_length=200)
+    name: Optional[str] = Field(
+        None,
+        max_length=100,
+    )
+    company_challenge: Optional[str] = Field(
+        None,
+        max_length=300,
+    )
+    company_name: Optional[str] = Field(
+        None,
+        max_length=200,
+    )
+    company_overview: Optional[str] = Field(
+        None,
+        max_length=3000,
+    )
+    challenge_description: Optional[str] = Field(
+        None,
+        max_length=5000,
+    )
     is_active: Optional[bool] = None
 
+class TeamChallengeUpdate(BaseModel):
+    company_name: Optional[str] = Field(
+        None,
+        max_length=200,
+    )
+    company_overview: Optional[str] = Field(
+        None,
+        max_length=3000,
+    )
+    company_challenge: Optional[str] = Field(
+        None,
+        max_length=300,
+    )
+    challenge_description: Optional[str] = Field(
+        None,
+        max_length=5000,
+    )
 
 class TeamMemberAdd(BaseModel):
     user_id: UUID
@@ -312,6 +355,8 @@ class TeamResponse(BaseModel):
     name: str
     company_challenge: Optional[str]
     company_name: Optional[str]
+    company_overview: Optional[str]
+    challenge_description: Optional[str]
     is_active: bool
     member_count: int
     created_at: datetime
@@ -324,6 +369,81 @@ class TeamDetailResponse(TeamResponse):
     members: list[TeamMemberResponse] = Field(
         default_factory=list
     )
+
+class TeamChallengeResourceCreate(BaseModel):
+    title: str = Field(
+        ...,
+        max_length=300,
+    )
+
+    resource_type: Literal["link"] = "link"
+
+    url: str = Field(
+        ...,
+        max_length=1000,
+    )
+
+    is_downloadable: bool = False
+
+    sequence: int = Field(
+        0,
+        ge=0,
+    )
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, value: object) -> str | None:
+        return validate_external_url(
+            value,
+            field_name="Company Challenge resource URL",
+        )
+
+
+class TeamChallengeResourceUpdate(BaseModel):
+    title: Optional[str] = Field(
+        None,
+        max_length=300,
+    )
+
+    url: Optional[str] = Field(
+        None,
+        max_length=1000,
+    )
+
+    is_downloadable: Optional[bool] = None
+
+    sequence: Optional[int] = Field(
+        None,
+        ge=0,
+    )
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def validate_url(cls, value: object) -> str | None:
+        return validate_external_url(
+            value,
+            field_name="Company Challenge resource URL",
+        )
+
+
+class TeamChallengeResourceResponse(BaseModel):
+    id: UUID
+    team_id: UUID
+
+    title: str
+    resource_type: str
+
+    url: Optional[str]
+
+    is_downloadable: bool
+    sequence: int
+
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {
+        "from_attributes": True,
+    }
 
 # ---------------------------------------------------------------------------
 # Resources

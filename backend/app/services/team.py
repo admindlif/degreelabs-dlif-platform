@@ -1,10 +1,12 @@
 from uuid import UUID
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.team import (
+    TeamChallengeResource,
     TeamMembership,
     TeamMemberRole,
 )
@@ -20,6 +22,8 @@ from app.repositories.team import (
     get_team_membership_for_cohort,
 )
 from app.schemas.team_resource import (
+    CompanyChallengeResponse,
+    TeamChallengeResourceResponse,
     TeamMemberResponse,
     TeamResponse,
 )
@@ -90,6 +94,79 @@ def get_fellow_team(
         members=members,
     )
 
+
+def get_fellow_company_challenge(
+    db: Session,
+    current_user: User,
+) -> CompanyChallengeResponse:
+    """
+    Return the Company Challenge assigned to the
+    authenticated Fellow's Team in their active Cohort.
+    """
+
+    enrollment = get_active_enrollment_for_user(
+        db,
+        current_user.id,
+    )
+
+    if not enrollment:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "No active enrollment found for this Fellow."
+            ),
+        )
+
+    team = get_team_for_fellow(
+        db,
+        current_user.id,
+        enrollment.cohort_id,
+    )
+
+    if not team:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=(
+                "No team assignment found for this Fellow "
+                "in the current cohort."
+            ),
+        )
+
+    resources = db.scalars(
+        select(TeamChallengeResource)
+        .where(
+            TeamChallengeResource.team_id
+            == team.id
+        )
+        .order_by(
+            TeamChallengeResource.sequence,
+            TeamChallengeResource.created_at,
+        )
+    ).all()
+
+    return CompanyChallengeResponse(
+        team_id=team.id,
+        team_name=team.name,
+        company_name=team.company_name,
+        company_overview=team.company_overview,
+        company_challenge=team.company_challenge,
+        challenge_description=(
+            team.challenge_description
+        ),
+        resources=[
+            TeamChallengeResourceResponse(
+                id=resource.id,
+                title=resource.title,
+                resource_type=resource.resource_type,
+                url=resource.url,
+                is_downloadable=(
+                    resource.is_downloadable
+                ),
+                sequence=resource.sequence,
+            )
+            for resource in resources
+        ],
+    )
 
 def add_member_to_team(
     db: Session,

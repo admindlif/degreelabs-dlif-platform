@@ -21,7 +21,12 @@ from app.models.phase import Phase
 from app.models.program import Program
 from app.models.resource import Resource, ResourceType
 from app.models.session import Session as DBSession, SessionStatus, SessionType
-from app.models.team import Team, TeamMembership, TeamMemberRole
+from app.models.team import (
+    Team,
+    TeamMembership,
+    TeamMemberRole,
+    TeamChallengeResource,
+)
 from app.models.user import AccountStatus, User, UserRole
 from app.models.week import Week
 from app.schemas.admin_crud import (
@@ -41,8 +46,12 @@ from app.schemas.admin_crud import (
     TeamUpdate,
     TeamMemberAdd,
     TeamLeadAssign,
+    TeamChallengeResourceCreate,
+    TeamChallengeResourceUpdate,
+    TeamChallengeResourceResponse,
     WeekCreate,
     WeekUpdate,
+    TeamChallengeUpdate,
 )
 
 from app.services.team import (
@@ -1757,7 +1766,19 @@ def list_teams(cohort_id: str | None = None, db: Session = Depends(get_db), _adm
     res = []
     for t in teams:
         members = db.scalars(select(TeamMembership).where(TeamMembership.team_id == t.id)).all()
-        res.append({"id": str(t.id), "cohort_id": str(t.cohort_id), "name": t.name, "company_challenge": t.company_challenge, "company_name": t.company_name, "is_active": t.is_active, "member_count": len(members)})
+        res.append({
+            "id": str(t.id),
+            "cohort_id": str(t.cohort_id),
+            "name": t.name,
+            "company_challenge": t.company_challenge,
+            "company_name": t.company_name,
+
+            "company_overview": t.company_overview,
+            "challenge_description": t.challenge_description,
+
+            "is_active": t.is_active,
+            "member_count": len(members),
+        })
     return res
 
 
@@ -1782,7 +1803,18 @@ def get_team(team_id: str, db: Session = Depends(get_db), _admin: User = Depends
     for m in memberships:
         u = db.scalar(select(User).where(User.id == m.user_id))
         members.append({"id": str(m.id), "user_id": str(m.user_id), "team_role": m.team_role.value if hasattr(m.team_role, "value") else str(m.team_role), "joined_at": m.joined_at.isoformat() if m.joined_at else None, "first_name": u.first_name if u else None, "last_name": u.last_name if u else None, "email": u.email if u else None})
-    return {"id": str(team.id), "cohort_id": str(team.cohort_id), "name": team.name, "company_challenge": team.company_challenge, "company_name": team.company_name, "is_active": team.is_active, "member_count": len(members), "members": members}
+    return {
+        "id": str(team.id),
+        "cohort_id": str(team.cohort_id),
+        "name": team.name,
+        "company_challenge": team.company_challenge,
+        "company_name": team.company_name,
+        "company_overview": team.company_overview,
+        "challenge_description": team.challenge_description,
+        "is_active": team.is_active,
+        "member_count": len(members),
+        "members": members,
+    }
 
 
 @router.put("/teams/{team_id}", summary="Update a Team")
@@ -1796,6 +1828,242 @@ def update_team(team_id: str, data: TeamUpdate, db: Session = Depends(get_db), _
     db.refresh(team)
     return {"id": str(team.id), "name": team.name, "is_active": team.is_active}
 
+@router.put(
+    "/teams/{team_id}/challenge",
+    summary="Update Company and Company Challenge",
+)
+def update_team_challenge(
+    team_id: UUID,
+    data: TeamChallengeUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    team = db.scalar(
+        select(Team).where(
+            Team.id == team_id
+        )
+    )
+
+    if not team:
+        raise _not_found(
+            "Team",
+            team_id,
+        )
+
+    updates = data.model_dump(
+        exclude_unset=True
+    )
+
+    for field, value in updates.items():
+        setattr(
+            team,
+            field,
+            value,
+        )
+
+    db.commit()
+    db.refresh(team)
+
+    return {
+        "team_id": str(team.id),
+        "company_name": team.company_name,
+        "company_overview": team.company_overview,
+        "company_challenge": team.company_challenge,
+        "challenge_description":
+            team.challenge_description,
+    }
+
+
+
+@router.get(
+    "/teams/{team_id}/challenge/resources",
+    response_model=list[TeamChallengeResourceResponse],
+    summary="List Company Challenge resources",
+)
+def list_team_challenge_resources(
+    team_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    team = db.scalar(
+        select(Team).where(
+            Team.id == team_id
+        )
+    )
+
+    if not team:
+        raise _not_found(
+            "Team",
+            team_id,
+        )
+
+    resources = db.scalars(
+        select(TeamChallengeResource)
+        .where(
+            TeamChallengeResource.team_id
+            == team_id
+        )
+        .order_by(
+            TeamChallengeResource.sequence,
+            TeamChallengeResource.created_at,
+        )
+    ).all()
+
+    return resources
+
+
+@router.post(
+    "/teams/{team_id}/challenge/resources",
+    response_model=TeamChallengeResourceResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create Company Challenge resource",
+)
+def create_team_challenge_resource(
+    team_id: UUID,
+    data: TeamChallengeResourceCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    team = db.scalar(
+        select(Team).where(
+            Team.id == team_id
+        )
+    )
+
+    if not team:
+        raise _not_found(
+            "Team",
+            team_id,
+        )
+
+    resource = TeamChallengeResource(
+        team_id=team.id,
+        **data.model_dump(),
+    )
+
+    db.add(resource)
+    db.commit()
+    db.refresh(resource)
+
+    return resource
+
+@router.put(
+    "/teams/{team_id}/challenge/resources/{resource_id}",
+    response_model=TeamChallengeResourceResponse,
+    summary="Update Company Challenge resource",
+)
+def update_team_challenge_resource(
+    team_id: UUID,
+    resource_id: UUID,
+    data: TeamChallengeResourceUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    team = db.scalar(
+        select(Team).where(
+            Team.id == team_id
+        )
+    )
+
+    if not team:
+        raise _not_found(
+            "Team",
+            team_id,
+        )
+
+    resource = db.scalar(
+        select(TeamChallengeResource).where(
+            TeamChallengeResource.id == resource_id,
+            TeamChallengeResource.team_id == team_id,
+        )
+    )
+
+    if not resource:
+        raise _not_found(
+            "Team Challenge Resource",
+            resource_id,
+        )
+
+    updates = data.model_dump(
+        exclude_unset=True
+    )
+
+    for field, value in updates.items():
+        setattr(
+            resource,
+            field,
+            value,
+        )
+
+    db.commit()
+    db.refresh(resource)
+
+    return resource
+
+
+@router.delete(
+    "/teams/{team_id}/challenge/resources/{resource_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete Company Challenge resource",
+)
+def delete_team_challenge_resource(
+    team_id: UUID,
+    resource_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(
+            UserRole.ADMIN,
+            UserRole.SUPER_ADMIN,
+        )
+    ),
+):
+    team = db.scalar(
+        select(Team).where(
+            Team.id == team_id
+        )
+    )
+
+    if not team:
+        raise _not_found(
+            "Team",
+            team_id,
+        )
+
+    resource = db.scalar(
+        select(TeamChallengeResource).where(
+            TeamChallengeResource.id == resource_id,
+            TeamChallengeResource.team_id == team_id,
+        )
+    )
+
+    if not resource:
+        raise _not_found(
+            "Team Challenge Resource",
+            resource_id,
+        )
+
+    db.delete(resource)
+    db.commit()
 
 @router.delete("/teams/{team_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Delete a Team")
 def delete_team(team_id: str, db: Session = Depends(get_db), _admin: User = Depends(require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN))):

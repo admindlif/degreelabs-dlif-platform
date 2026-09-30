@@ -127,6 +127,27 @@ export interface FellowTeam {
   members: TeamMember[];
 }
 
+export interface TeamChallengeResource {
+  id: string;
+  title: string;
+  resource_type: string;
+  url: string | null;
+  is_downloadable: boolean;
+  sequence: number;
+}
+
+export interface CompanyChallenge {
+  team_id: string;
+  team_name: string;
+
+  company_name: string | null;
+  company_overview: string | null;
+
+  company_challenge: string | null;
+  challenge_description: string | null;
+
+  resources: TeamChallengeResource[];
+}
 export interface PhaseResource {
   id: string;
   title: string;
