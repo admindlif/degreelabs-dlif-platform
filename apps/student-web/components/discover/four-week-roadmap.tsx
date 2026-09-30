@@ -1,4 +1,5 @@
 import * as React from "react";
+import Link from "next/link";
 import {
   CheckCircle2,
   Clock,
@@ -36,7 +37,8 @@ interface DisplayWeek {
   sessions: DisplaySession[];
   weeklyOutput?: {
     title: string;
-    status: "submitted" | "pending" | "locked";
+    status: "pending" | "locked";
+    sessionId?: string;
   };
 }
 
@@ -88,28 +90,16 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
     }
   };
 
-  const getWeekOutputInfo = (weekNum: number) => {
+  const getWeekOutputTitle = (weekNum: number) => {
     switch (weekNum) {
       case 1:
-        return {
-          title: "Business Diagnosis & Problem Framing Pack",
-          status: "pending" as const,
-        };
+        return "Business Diagnosis & Problem Framing Pack";
       case 2:
-        return {
-          title: "Strategic Possibility & Choice Pack",
-          status: "locked" as const,
-        };
+        return "Strategic Possibility & Choice Pack";
       case 3:
-        return {
-          title: "Strategy & Execution Blueprint",
-          status: "locked" as const,
-        };
+        return "Strategy & Execution Blueprint";
       case 4:
-        return {
-          title: "Executive Proposal · Company Presentation · Strategic Design Portfolio",
-          status: "locked" as const,
-        };
+        return "Executive Proposal · Company Presentation · Strategic Design Portfolio";
       default:
         return undefined;
     }
@@ -158,6 +148,14 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
             recordingUrl: s.recording_url,
           };
         });
+        const outputTitle = getWeekOutputTitle(w.week_number);
+        const outputReviewSession = w.sessions.find(
+          (session) => session.session_type === "output_review"
+        );
+        const outputIsOpen = Boolean(
+          outputReviewSession?.is_unlocked &&
+          outputReviewSession.submission_enabled
+        );
 
         return {
           weekNumber: `WEEK ${String(w.week_number).padStart(2, "0")}`,
@@ -167,7 +165,15 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
           statusBadgeVariant: badgeVariant,
           description: w.description || "",
           sessions: mappedSessions,
-          weeklyOutput: getWeekOutputInfo(w.week_number),
+          weeklyOutput: outputTitle
+            ? {
+                title: outputTitle,
+                status: outputIsOpen ? "pending" : "locked",
+                sessionId: outputIsOpen
+                  ? outputReviewSession?.id
+                  : undefined,
+              }
+            : undefined,
         };
       });
     }
@@ -287,35 +293,42 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                         {session.duration}
                       </span>
 
-                      {session.status === "completed" && session.hasRecording && (
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => {
-                            if (session.recordingUrl) window.open(session.recordingUrl, "_blank", "noopener,noreferrer");
-                          }}
+                      {session.status !== "locked" && (
+                        <Link
+                          href={`/sessions/${session.id}`}
+                          className="inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs font-bold text-[var(--color-text-body)] transition-colors hover:bg-[var(--color-bg-subtle)] hover:text-[var(--color-text-primary)]"
+                        >
+                          View Details
+                        </Link>
+                      )}
+
+                      {session.status === "completed" && session.hasRecording && session.recordingUrl && (
+                        <a
+                          href={session.recordingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 rounded-full border border-[var(--color-border-strong)] px-3.5 py-1.5 text-xs font-bold text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-subtle)]"
                         >
                           <PlayCircle className="w-3.5 h-3.5 text-[var(--color-brand-blue)]" />
                           <span>Watch Recording</span>
-                        </Button>
+                        </a>
                       )}
 
-                      {session.status === "live_soon" && (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => {
-                            if (session.meetingUrl) window.open(session.meetingUrl, "_blank", "noopener,noreferrer");
-                          }}
+                      {session.status === "live_soon" && session.meetingUrl && (
+                        <a
+                          href={session.meetingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center justify-center gap-1.5 rounded-full bg-[var(--color-brand-orange)] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-brand-orange-hover)]"
                         >
                           <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
                           <span>Join Live</span>
-                        </Button>
+                        </a>
                       )}
 
-                      {session.status === "upcoming" && (
-                        <Button variant="ghost" size="sm">
-                          <span>View Details</span>
+                      {session.status === "live_soon" && !session.meetingUrl && (
+                        <Button variant="primary" size="sm" disabled>
+                          Meeting Link Coming Soon
                         </Button>
                       )}
                     </div>
@@ -339,10 +352,13 @@ export function FourWeekRoadmap({ weeks }: FourWeekRoadmapProps) {
                   </div>
 
                   <div className="flex items-center gap-3">
-                    {week.weeklyOutput.status === "pending" ? (
-                      <Button variant="primary" size="sm">
+                    {week.weeklyOutput.status === "pending" && week.weeklyOutput.sessionId ? (
+                      <Link
+                        href={`/sessions/${week.weeklyOutput.sessionId}?tab=submission`}
+                        className="inline-flex items-center justify-center rounded-full bg-[var(--color-brand-orange)] px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[var(--color-brand-orange-hover)]"
+                      >
                         Submit Weekly Output
-                      </Button>
+                      </Link>
                     ) : (
                       <Badge variant="muted" size="sm">
                         Not Yet Open

@@ -26,6 +26,7 @@ import {
   Lock,
   Menu,
   Unlock,
+  ClipboardList,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 import {
@@ -38,6 +39,7 @@ import {
   AdminStats,
   AdminTeam,
   AdminWeek,
+  AdminChecklistItem,
 
   getAdminCohorts,
   getAdminFellows,
@@ -48,6 +50,7 @@ import {
   getAdminStats,
   getAdminTeams,
   getAdminWeeks,
+  getAdminChecklistItems,
 
   deleteCohort,
   deleteFellow,
@@ -57,12 +60,14 @@ import {
   deleteSession,
   deleteTeam,
   deleteWeek,
+  deleteChecklistItem,
 
   inviteFellow,
   unlockSession,
   lockSession,
   AdminSessionSubmissionItem,
   getAdminSessionSubmissions,
+  updateChecklistItem,
 } from "@/lib/api/admin";
 
 
@@ -79,6 +84,7 @@ import { CohortFellowsModal } from "@/components/admin/cohort-fellows-modal";
 import { TeamMembersModal } from "@/components/admin/team-members-modal";
 import { SubmissionFeedbackModal } from "@/components/admin/submission-feedback-modal";
 import { TeamChallengeResourcesModal } from "@/components/admin/team-challenge-resources-modal";
+import { ChecklistItemModal } from "@/components/admin/checklist-item-modal";
 
 type NavTab =
   | "Dashboard"
@@ -90,6 +96,7 @@ type NavTab =
   | "Sessions"
   | "Teams"
   | "Resources"
+  | "Checklist"
   | "Weekly Outputs";
 
 interface NavGroup {
@@ -119,6 +126,7 @@ export default function AdminHomePage() {
   const [sessions, setSessions] = React.useState<AdminSession[]>([]);
   const [resources, setResources] = React.useState<AdminResource[]>([]);
   const [teams, setTeams] = React.useState<AdminTeam[]>([]);
+  const [checklistItems, setChecklistItems] = React.useState<AdminChecklistItem[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [searchQuery, setSearchQuery] = React.useState("");
   const [statusFilter, setStatusFilter] = React.useState<string>("all");
@@ -193,6 +201,12 @@ export default function AdminHomePage() {
   const [selectedResource, setSelectedResource] =
     React.useState<AdminResource | null>(null);
 
+  const [showChecklistItemModal, setShowChecklistItemModal] =
+    React.useState(false);
+
+  const [selectedChecklistItem, setSelectedChecklistItem] =
+    React.useState<AdminChecklistItem | null>(null);
+
   const [selectedProgram, setSelectedProgram] =
     React.useState<AdminProgram | null>(null);
 
@@ -233,6 +247,7 @@ export default function AdminHomePage() {
         sessionsData,
         resourcesData,
         teamsData,
+        checklistItemsData,
       ] = await Promise.all([
         getAdminStats().catch(() => null),
         getAdminFellows().catch(() => []),
@@ -243,6 +258,7 @@ export default function AdminHomePage() {
         getAdminSessions().catch(() => []),
         getAdminResources().catch(() => []),
         getAdminTeams().catch(() => []),
+        getAdminChecklistItems().catch(() => []),
       ]);
 
       setStats(statsData);
@@ -255,6 +271,7 @@ export default function AdminHomePage() {
       setSessions(sessionsData);
       setResources(resourcesData);
       setTeams(teamsData);
+      setChecklistItems(checklistItemsData);
     } catch (err) {
       console.error("Failed to load admin data:", err);
     } finally {
@@ -373,6 +390,11 @@ export default function AdminHomePage() {
         {
           name: "Resources",
           icon: BookOpen,
+        },
+        {
+          name: "Checklist",
+          icon: ClipboardList,
+          badge: checklistItems.length > 0 ? String(checklistItems.length) : undefined,
         },
         {
           name: "Weekly Outputs",
@@ -2193,6 +2215,140 @@ export default function AdminHomePage() {
             </div>
           )}
 
+          {/* CHECKLIST */}
+          {activeTab === "Checklist" && (
+            <div className="space-y-6">
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-xl font-extrabold">Fellow Checklist</h2>
+                  <p className="mt-1 text-xs text-[var(--color-text-muted)]">
+                    Manage dynamic Fellow actions and target them by program scope.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedChecklistItem(null);
+                    setShowChecklistItemModal(true);
+                  }}
+                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--color-brand-blue)] px-4 py-2 text-xs font-bold text-white"
+                >
+                  <Plus className="h-4 w-4" />
+                  Create Checklist Item
+                </button>
+              </div>
+
+              <div className="overflow-hidden rounded-2xl border border-[var(--color-border-default)] bg-[var(--color-bg-surface)]">
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[860px] text-left text-xs">
+                    <thead className="border-b bg-[var(--color-bg-canvas)]">
+                      <tr>
+                        <th className="px-4 py-3">Item</th>
+                        <th className="px-4 py-3">Scope</th>
+                        <th className="px-4 py-3">Due</th>
+                        <th className="px-4 py-3">Order</th>
+                        <th className="px-4 py-3">Status</th>
+                        <th className="px-4 py-3 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border-default)]">
+                      {checklistItems.length === 0 ? (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-10 text-center text-[var(--color-text-muted)]">
+                            No checklist items have been created.
+                          </td>
+                        </tr>
+                      ) : (
+                        checklistItems.map((item) => {
+                          const cohort = cohorts.find((entry) => entry.id === item.cohort_id);
+                          const phase = phases.find((entry) => entry.id === item.phase_id);
+                          const week = weeks.find((entry) => entry.id === item.week_id);
+                          const session = sessions.find((entry) => entry.id === item.session_id);
+                          const scopes = [
+                            cohort?.name,
+                            phase?.name,
+                            week ? `Week ${week.week_number}` : null,
+                            session ? `Session ${session.session_number}` : null,
+                          ].filter(Boolean);
+
+                          return (
+                            <tr key={item.id}>
+                              <td className="max-w-sm px-4 py-3">
+                                <div className="font-bold">{item.title}</div>
+                                <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-[var(--color-text-muted)]">
+                                  {item.category && <span>{item.category}</span>}
+                                  {item.category && item.is_required && <span>•</span>}
+                                  {item.is_required && <span>Required</span>}
+                                </div>
+                              </td>
+                              <td className="px-4 py-3">
+                                {scopes.length > 0 ? scopes.join(" › ") : "All Fellows"}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3">
+                                {item.due_at ? new Date(item.due_at).toLocaleString() : "No due date"}
+                              </td>
+                              <td className="px-4 py-3">{item.sequence}</td>
+                              <td className="px-4 py-3">
+                                <span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${item.is_active ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"}`}>
+                                  {item.is_active ? "Active" : "Inactive"}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3">
+                                <div className="flex justify-end gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await updateChecklistItem(item.id, {
+                                          is_active: !item.is_active,
+                                        });
+                                        await loadData();
+                                      } catch (err: any) {
+                                        window.alert(err?.message || "Unable to change checklist item status.");
+                                      }
+                                    }}
+                                    className="rounded-lg border border-[var(--color-border-default)] px-3 py-1.5 font-semibold"
+                                  >
+                                    {item.is_active ? "Deactivate" : "Activate"}
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setSelectedChecklistItem(item);
+                                      setShowChecklistItemModal(true);
+                                    }}
+                                    className="rounded-lg border border-[var(--color-border-default)] px-3 py-1.5 font-semibold"
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      if (!window.confirm(`Delete "${item.title}"? Items with completion history will be deactivated instead.`)) return;
+                                      try {
+                                        await deleteChecklistItem(item.id);
+                                        await loadData();
+                                      } catch (err: any) {
+                                        window.alert(err?.message || "Unable to delete checklist item.");
+                                      }
+                                    }}
+                                    className="rounded-lg border border-red-200 px-3 py-1.5 font-semibold text-red-600"
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* WEEKLY OUTPUTS */}
           {activeTab === "Weekly Outputs" && (
             <div className="space-y-6">
@@ -2630,6 +2786,25 @@ export default function AdminHomePage() {
             setShowResourceModal(false);
             setSelectedResource(null);
 
+            await loadData();
+          }}
+        />
+      )}
+
+      {showChecklistItemModal && (
+        <ChecklistItemModal
+          item={selectedChecklistItem}
+          cohorts={cohorts}
+          phases={phases}
+          weeks={weeks}
+          sessions={sessions}
+          onClose={() => {
+            setShowChecklistItemModal(false);
+            setSelectedChecklistItem(null);
+          }}
+          onSaved={async () => {
+            setShowChecklistItemModal(false);
+            setSelectedChecklistItem(null);
             await loadData();
           }}
         />

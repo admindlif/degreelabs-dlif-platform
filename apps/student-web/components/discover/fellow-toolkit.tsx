@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import {
   BookOpen,
   Users,
@@ -13,7 +14,6 @@ import {
 } from "lucide-react";
 import { Card, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { FellowTeam, PhaseResource } from "@/lib/api/types";
 import { getFellowTeam, getFellowResources } from "@/lib/api/toolkit";
 
@@ -97,15 +97,8 @@ export function FellowToolkit() {
           ) : resources.length > 0 ? (
             resources.map((resource) => {
               const accent = resourceAccentColor(resource.resource_type);
-              const handleClick = () => {
-                if (resource.url) window.open(resource.url, "_blank", "noopener,noreferrer");
-              };
-              return (
-                <div
-                  key={resource.id}
-                  onClick={handleClick}
-                  className={`p-3.5 rounded-xl bg-white border border-[var(--color-border-default)] ${accent.hover} hover:shadow-xs transition-all flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between group ${resource.url ? "cursor-pointer" : "cursor-default"}`}
-                >
+              const resourceContent = (
+                <>
                   <div className="flex min-w-0 items-center gap-3">
                     <div
                       className="w-8 h-8 rounded-lg flex items-center justify-center"
@@ -114,10 +107,7 @@ export function FellowToolkit() {
                       <ResourceIcon type={resource.resource_type} />
                     </div>
                     <div className="min-w-0">
-                      <p
-                        className="break-words text-xs font-bold text-[var(--color-text-primary)] transition-colors"
-                        style={{ color: undefined }}
-                      >
+                      <p className="break-words text-xs font-bold text-[var(--color-text-primary)] transition-colors">
                         {resource.title}
                       </p>
                       {resource.subtitle && (
@@ -127,7 +117,27 @@ export function FellowToolkit() {
                       )}
                     </div>
                   </div>
-                  {accent.actionIcon}
+                  {resource.url && accent.actionIcon}
+                </>
+              );
+
+              return resource.url ? (
+                <a
+                  key={resource.id}
+                  href={resource.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`p-3.5 rounded-xl bg-white border border-[var(--color-border-default)] ${accent.hover} hover:shadow-xs transition-all flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between group cursor-pointer`}
+                >
+                  {resourceContent}
+                </a>
+              ) : (
+                <div
+                  key={resource.id}
+                  aria-disabled="true"
+                  className="p-3.5 rounded-xl bg-white border border-[var(--color-border-default)] flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between cursor-default"
+                >
+                  {resourceContent}
                 </div>
               );
             })
@@ -193,9 +203,12 @@ export function FellowToolkit() {
                 )}
               </div>
 
-              <Button variant="ghost" size="sm" className="text-xs text-[var(--color-brand-blue)] font-bold">
+              <Link
+                href="/team"
+                className="inline-flex items-center justify-center rounded-full px-3.5 py-1.5 text-xs font-bold text-[var(--color-brand-blue)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+              >
                 View Team Space →
-              </Button>
+              </Link>
             </div>
           </>
         ) : (

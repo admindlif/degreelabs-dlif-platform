@@ -109,12 +109,10 @@ export function LiveSessionSpotlight({ session }: LiveSessionSpotlightProps) {
             href={session.meeting_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="w-full sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2.5 rounded-full bg-[var(--color-brand-orange)] px-7 py-3.5 text-base font-bold tracking-tight text-white shadow-sm transition-all duration-200 hover:bg-[var(--color-brand-orange-hover)] hover:shadow sm:w-auto"
           >
-            <Button variant="primary" size="lg" className="w-full sm:w-auto">
-              <Video className="h-4 w-4" />
-              <span>Join Google Meet</span>
-            </Button>
+            <Video className="h-4 w-4" />
+            <span>Join Google Meet</span>
           </a>
         ) : (
           <Button variant="primary" size="lg" disabled className="w-full sm:w-auto">

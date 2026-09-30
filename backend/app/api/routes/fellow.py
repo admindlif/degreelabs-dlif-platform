@@ -43,6 +43,15 @@ from app.services.submission import (
 
 from app.schemas.feedback import SubmissionFeedbackDetail
 from app.services.feedback import get_fellow_session_feedback
+from app.schemas.checklist import (
+    ChecklistCompletionUpdate,
+    FellowChecklistItemResponse,
+    FellowChecklistResponse,
+)
+from app.services.checklist import (
+    get_fellow_checklist,
+    update_fellow_checklist_completion,
+)
 router = APIRouter(prefix="/fellow", tags=["Fellow Portal"])
 
 
@@ -244,3 +253,33 @@ def get_resources(
 ) -> list[ResourceResponse]:
     return get_fellow_resources(db, current_user)
 
+
+@router.get(
+    "/checklist",
+    response_model=FellowChecklistResponse,
+    summary="Get the authenticated Fellow's dynamic checklist",
+)
+def get_checklist(
+    current_user: User = Depends(require_fellow_portal),
+    db: Session = Depends(get_db),
+) -> FellowChecklistResponse:
+    return get_fellow_checklist(db, current_user)
+
+
+@router.put(
+    "/checklist/{item_id}/completion",
+    response_model=FellowChecklistItemResponse,
+    summary="Update the authenticated Fellow's checklist completion",
+)
+def update_checklist_completion(
+    item_id: UUID,
+    data: ChecklistCompletionUpdate,
+    current_user: User = Depends(require_fellow_portal),
+    db: Session = Depends(get_db),
+) -> FellowChecklistItemResponse:
+    return update_fellow_checklist_completion(
+        db,
+        current_user,
+        item_id,
+        data.is_completed,
+    )

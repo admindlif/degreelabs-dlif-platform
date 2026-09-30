@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
     Calendar,
@@ -37,14 +37,29 @@ type Tab =
     | "submission"
     | "feedback";
 
+const VALID_TABS: readonly Tab[] = [
+    "overview",
+    "resources",
+    "recording",
+    "submission",
+    "feedback",
+];
+
+function getRequestedTab(value: string | null): Tab {
+    return VALID_TABS.includes(value as Tab)
+        ? (value as Tab)
+        : "overview";
+}
+
 function getErrorMessage(error: unknown, fallback: string) {
     return error instanceof Error && error.message
         ? error.message
         : fallback;
 }
 
-export default function SessionWorkspacePage() {
+function SessionWorkspaceContent() {
     const params = useParams();
+    const searchParams = useSearchParams();
 
     const sessionId = params.sessionId as string;
 
@@ -82,7 +97,9 @@ export default function SessionWorkspacePage() {
         React.useState(false);
 
     const [activeTab, setActiveTab] =
-        React.useState<Tab>("overview");
+        React.useState<Tab>(() =>
+            getRequestedTab(searchParams.get("tab"))
+        );
 
     const [loading, setLoading] =
         React.useState(true);
@@ -101,6 +118,12 @@ export default function SessionWorkspacePage() {
 
     const [feedbackLoaded, setFeedbackLoaded] =
         React.useState(false);
+
+    React.useEffect(() => {
+        setActiveTab(
+            getRequestedTab(searchParams.get("tab"))
+        );
+    }, [searchParams]);
 
     const loadSession = React.useCallback(
         async () => {
@@ -280,10 +303,11 @@ export default function SessionWorkspacePage() {
                                 Retry
                             </Button>
 
-                            <Link href="/sessions">
-                                <Button variant="secondary">
-                                    Back to Sessions
-                                </Button>
+                            <Link
+                                href="/sessions"
+                                className="inline-flex items-center justify-center rounded-full border border-[var(--color-border-strong)] px-5 py-2.5 text-sm font-bold tracking-tight text-[var(--color-text-primary)] transition-colors hover:bg-[var(--color-bg-subtle)]"
+                            >
+                                Back to Sessions
                             </Link>
                         </div>
                     </div>
@@ -833,5 +857,21 @@ export default function SessionWorkspacePage() {
                 </div>
             </div>
         </PortalShell>
+    );
+}
+
+export default function SessionWorkspacePage() {
+    return (
+        <React.Suspense
+            fallback={
+                <PortalShell breadcrumbItems={["Session"]}>
+                    <div className="rounded-2xl border border-[var(--color-border-default)] py-16 text-center text-sm text-[var(--color-text-muted)]">
+                        Loading Session...
+                    </div>
+                </PortalShell>
+            }
+        >
+            <SessionWorkspaceContent />
+        </React.Suspense>
     );
 }

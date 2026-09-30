@@ -277,6 +277,41 @@ export interface ResourceCreate {
   sequence?: number;
 }
 
+export interface AdminChecklistItem {
+  id: string;
+  cohort_id: string | null;
+  phase_id: string | null;
+  week_id: string | null;
+  session_id: string | null;
+  title: string;
+  description: string | null;
+  category: string | null;
+  due_at: string | null;
+  action_label: string | null;
+  action_url: string | null;
+  is_required: boolean;
+  is_active: boolean;
+  sequence: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ChecklistItemWrite {
+  cohort_id?: string | null;
+  phase_id?: string | null;
+  week_id?: string | null;
+  session_id?: string | null;
+  title: string;
+  description?: string | null;
+  category?: string | null;
+  due_at?: string | null;
+  action_label?: string | null;
+  action_url?: string | null;
+  is_required?: boolean;
+  is_active?: boolean;
+  sequence?: number;
+}
+
 // ---------------------------------------------------------------------------
 // Stats
 // ---------------------------------------------------------------------------
@@ -673,6 +708,39 @@ export async function updateResource(id: string, data: Partial<ResourceCreate>):
 
 export async function deleteResource(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/resources/${id}`, { method: "DELETE" });
+}
+
+// ---------------------------------------------------------------------------
+// Checklist items
+// ---------------------------------------------------------------------------
+
+export async function getAdminChecklistItems(): Promise<AdminChecklistItem[]> {
+  return adminApiClient<AdminChecklistItem[]>("/api/v1/admin/checklist-items");
+}
+
+export async function createChecklistItem(
+  data: ChecklistItemWrite
+): Promise<AdminChecklistItem> {
+  return adminApiClient<AdminChecklistItem>("/api/v1/admin/checklist-items", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateChecklistItem(
+  id: string,
+  data: Partial<ChecklistItemWrite>
+): Promise<AdminChecklistItem> {
+  return adminApiClient<AdminChecklistItem>(`/api/v1/admin/checklist-items/${id}`, {
+    method: "PUT",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteChecklistItem(id: string): Promise<void> {
+  await adminApiClient(`/api/v1/admin/checklist-items/${id}`, {
+    method: "DELETE",
+  });
 }
 
 export interface AdminTeamSubmissionDetail {

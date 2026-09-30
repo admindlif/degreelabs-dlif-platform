@@ -46,6 +46,7 @@ function SessionSidebarItem({
   if (locked) {
     return (
       <div
+        aria-disabled="true"
         className="
           flex items-center justify-between
           px-3 py-2 rounded-lg
@@ -369,6 +370,7 @@ export function Sidebar({
           <button
             type="button"
             onClick={logout}
+            aria-label="Log out"
             className="text-[var(--color-text-muted)] hover:text-[var(--color-brand-orange)] p-1.5 rounded-lg hover:bg-[var(--color-bg-subtle)] transition-colors shrink-0"
             title="Log out"
           >

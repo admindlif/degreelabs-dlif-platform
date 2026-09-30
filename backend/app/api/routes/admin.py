@@ -89,6 +89,17 @@ from app.schemas.feedback import (
     SubmissionFeedbackDetail,
     SubmissionFeedbackUpsertRequest,
 )
+from app.schemas.checklist import (
+    AdminChecklistItemResponse,
+    ChecklistItemCreate,
+    ChecklistItemUpdate,
+)
+from app.services.checklist import (
+    create_admin_checklist_item,
+    delete_admin_checklist_item,
+    list_admin_checklist_items,
+    update_admin_checklist_item,
+)
 router = APIRouter(prefix="/admin", tags=["Admin"])
 logger = logging.getLogger(__name__)
 
@@ -117,6 +128,71 @@ def get_admin_stats(
     total_teams = db.scalar(select(func.count(Team.id))) or 0
     total_sessions = db.scalar(select(func.count(DBSession.id))) or 0
     return {"total_fellows": total_fellows, "active_fellows": active_fellows, "invited_fellows": invited_fellows, "total_cohorts": total_cohorts, "total_teams": total_teams, "total_sessions": total_sessions, "current_phase": "DISCOVER (THINK)", "week": "Week 1 of 4"}
+
+
+# ===========================================================================
+# CHECKLIST ITEMS CRUD
+# ===========================================================================
+
+@router.get(
+    "/checklist-items",
+    response_model=list[AdminChecklistItemResponse],
+    summary="List checklist item definitions",
+)
+def list_checklist_items(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    ),
+):
+    return list_admin_checklist_items(db)
+
+
+@router.post(
+    "/checklist-items",
+    response_model=AdminChecklistItemResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="Create a checklist item definition",
+)
+def create_checklist_item(
+    data: ChecklistItemCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    ),
+):
+    return create_admin_checklist_item(db, data)
+
+
+@router.put(
+    "/checklist-items/{item_id}",
+    response_model=AdminChecklistItemResponse,
+    summary="Update a checklist item definition",
+)
+def update_checklist_item(
+    item_id: UUID,
+    data: ChecklistItemUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    ),
+):
+    return update_admin_checklist_item(db, item_id, data)
+
+
+@router.delete(
+    "/checklist-items/{item_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete or deactivate a checklist item definition",
+)
+def delete_checklist_item(
+    item_id: UUID,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(
+        require_roles(UserRole.ADMIN, UserRole.SUPER_ADMIN)
+    ),
+):
+    delete_admin_checklist_item(db, item_id)
 
 
 # ===========================================================================

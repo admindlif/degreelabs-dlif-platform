@@ -196,3 +196,32 @@ export interface SubmissionFeedback {
   updated_at: string;
 }
 
+export type ChecklistStatus = "pending" | "overdue" | "completed";
+
+export interface ChecklistItem {
+  id: string;
+  title: string;
+  description: string | null;
+  category: string | null;
+  due_at: string | null;
+  status: ChecklistStatus;
+  is_required: boolean;
+  is_completed: boolean;
+  completed_at: string | null;
+  action_label: string | null;
+  action_url: string | null;
+  sequence: number;
+}
+
+export interface ChecklistSummary {
+  total: number;
+  completed: number;
+  pending: number;
+  overdue: number;
+  percentage: number;
+}
+
+export interface FellowChecklistResponse {
+  summary: ChecklistSummary;
+  items: ChecklistItem[];
+}

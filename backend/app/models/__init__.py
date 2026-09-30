@@ -11,6 +11,7 @@ from app.models.user_recovery_code import UserRecoveryCode
 from app.models.week import Week
 from app.models.submission import TeamSubmission
 from app.models.feedback import SubmissionFeedback
+from app.models.checklist import ChecklistItem, FellowChecklistCompletion
 
 __all__ = [
     "User",
@@ -36,4 +37,6 @@ __all__ = [
     "ResourceType",
     "TeamSubmission",
     "SubmissionFeedback",
+    "ChecklistItem",
+    "FellowChecklistCompletion",
 ]
