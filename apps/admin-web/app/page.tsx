@@ -790,7 +790,7 @@ export default function AdminHomePage() {
                 </div>
 
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full min-w-[720px] text-left text-xs">
                     <thead>
                       <tr className="border-b border-[var(--color-border-default)] text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
                         <th className="py-3 px-4">Fellow</th>
@@ -901,7 +901,8 @@ export default function AdminHomePage() {
 
               {/* Fellows Data Table */}
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden shadow-xs">
-                <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-left text-xs">
                   <thead className="bg-[var(--color-bg-canvas)] border-b border-[var(--color-border-default)]">
                     <tr className="text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
                       <th className="py-3.5 px-4">Fellow Name</th>
@@ -1010,6 +1011,7 @@ export default function AdminHomePage() {
                     )}
                   </tbody>
                 </table>
+                </div>
               </div>
             </div>
           )}
@@ -1042,8 +1044,8 @@ export default function AdminHomePage() {
               </div>
 
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
-
-                <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-left text-xs">
 
                   <thead className="bg-[var(--color-bg-canvas)]">
                     <tr>
@@ -1161,6 +1163,7 @@ export default function AdminHomePage() {
 
                   </tbody>
                 </table>
+                </div>
               </div>
 
             </div>
@@ -1372,7 +1375,7 @@ export default function AdminHomePage() {
               {/* Programs Table */}
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">
-                  <table className="w-full text-left text-xs">
+                  <table className="w-full min-w-[780px] text-left text-xs">
                     <thead className="bg-[var(--color-bg-canvas)] border-b border-[var(--color-border-default)]">
                       <tr className="text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
                         <th className="py-3.5 px-4">
@@ -1650,7 +1653,8 @@ export default function AdminHomePage() {
               </div>
 
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
-                <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left text-xs">
 
                   <thead className="bg-[var(--color-bg-canvas)] border-b border-[var(--color-border-default)]">
                     <tr className="text-[var(--color-text-muted)] uppercase tracking-wider font-semibold">
@@ -1752,6 +1756,7 @@ export default function AdminHomePage() {
                   </tbody>
 
                 </table>
+                </div>
               </div>
             </div>
           )}
@@ -1806,7 +1811,8 @@ export default function AdminHomePage() {
               </div>
 
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
-                <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-left text-xs">
 
                   <thead className="bg-[var(--color-bg-canvas)] border-b">
                     <tr>
@@ -1993,6 +1999,7 @@ export default function AdminHomePage() {
 
                   </tbody>
                 </table>
+                </div>
               </div>
 
             </div>
@@ -2028,8 +2035,8 @@ export default function AdminHomePage() {
 
 
               <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
-
-                <table className="w-full text-left text-xs">
+                <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-left text-xs">
 
                   <thead className="bg-[var(--color-bg-canvas)] border-b">
                     <tr>
@@ -2202,6 +2209,7 @@ export default function AdminHomePage() {
 
                   </tbody>
                 </table>
+                </div>
               </div>
 
             </div>
@@ -2468,8 +2476,8 @@ export default function AdminHomePage() {
                 !weeklyOutputLoading &&
                 !weeklyOutputError && (
                   <div className="rounded-2xl bg-[var(--color-bg-surface)] border border-[var(--color-border-default)] overflow-hidden">
-
-                    <table className="w-full text-left text-xs">
+                    <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-left text-xs">
 
                       <thead className="bg-[var(--color-bg-canvas)] border-b">
                         <tr>
@@ -2583,6 +2591,7 @@ export default function AdminHomePage() {
 
                       </tbody>
                     </table>
+                    </div>
                   </div>
                 )}
 

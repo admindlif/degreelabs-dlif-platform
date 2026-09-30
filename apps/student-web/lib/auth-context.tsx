@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = React.useCallback(async (authToken: string): Promise<AuthUser | null> => {
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/v1/student-portal/me`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/me`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },

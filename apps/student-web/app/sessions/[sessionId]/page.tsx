@@ -16,6 +16,7 @@ import {
 
 import { PortalShell } from "@/components/layout/portal-shell";
 import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
 import {
     getSessionDetail,
     getSessionResources,
@@ -55,6 +56,16 @@ function getErrorMessage(error: unknown, fallback: string) {
     return error instanceof Error && error.message
         ? error.message
         : fallback;
+}
+
+type SessionLoadError = "locked" | "not_found" | "generic";
+
+function classifySessionLoadError(error: unknown): SessionLoadError {
+    if (error instanceof ApiError) {
+        if (error.status === 403) return "locked";
+        if (error.status === 404) return "not_found";
+    }
+    return "generic";
 }
 
 function SessionWorkspaceContent() {
@@ -106,7 +117,7 @@ function SessionWorkspaceContent() {
         React.useState(true);
 
     const [error, setError] =
-        React.useState<string | null>(null);
+        React.useState<SessionLoadError | null>(null);
 
     const [feedback, setFeedback] =
         React.useState<SubmissionFeedback | null>(null);
@@ -130,7 +141,7 @@ function SessionWorkspaceContent() {
                 setSession(data);
                 setError(null);
             } catch (err: unknown) {
-                setError(getErrorMessage(err, "Unable to load this Session."));
+                setError(classifySessionLoadError(err));
             } finally {
                 setLoading(false);
             }
@@ -175,7 +186,7 @@ function SessionWorkspaceContent() {
             })
             .catch((err: unknown) => {
                 if (cancelled) return;
-                setError(getErrorMessage(err, "Unable to load this Session."));
+                setError(classifySessionLoadError(err));
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);
@@ -317,26 +328,41 @@ function SessionWorkspaceContent() {
 
 
     if (error || !session) {
+        const errorKind = error ?? "generic";
+        const errorCopy = {
+            locked: {
+                title: "Session locked",
+                message: "This Session is not available yet.",
+            },
+            not_found: {
+                title: "Session not found",
+                message: "The requested Session could not be found.",
+            },
+            generic: {
+                title: "Unable to open Session",
+                message: "Unable to load this Session. Please try again.",
+            },
+        }[errorKind];
+
         return (
             <PortalShell breadcrumbItems={["Session"]}>
                 <div className="max-w-2xl mx-auto py-16">
-                    <div className="rounded-2xl border border-red-200 bg-red-50 p-6">
+                    <div role="alert" className="rounded-2xl border border-red-200 bg-red-50 p-6">
                         <h1 className="font-bold text-red-800">
-                            Unable to open Session
+                            {errorCopy.title}
                         </h1>
 
                         <p className="text-sm text-red-700 mt-2">
-                            {error}
+                            {errorCopy.message}
                         </p>
 
-                        <div className="flex gap-3 mt-5">
-                            <Button
-                                variant="secondary"
-                                onClick={retrySession}
-                            >
-                                <RefreshCw className="w-4 h-4" />
-                                Retry
-                            </Button>
+                        <div className="flex flex-wrap gap-3 mt-5">
+                            {errorKind === "generic" && (
+                                <Button onClick={retrySession}>
+                                    <RefreshCw className="w-4 h-4" />
+                                    Retry
+                                </Button>
+                            )}
 
                             <Link
                                 href="/sessions"

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Shield, Lock, Mail, KeyRound, AlertCircle, ArrowRight, ArrowLeft, Loader2, ShieldAlert } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -133,8 +133,8 @@ export default function AdminLoginPage() {
             {stage === 1
               ? "Restricted area for platform administrators and cohort operators."
               : isRecoveryCode
-              ? "Enter one of your emergency recovery codes."
-              : "Enter the 6-digit code from your authenticator app."}
+                ? "Enter one of your emergency recovery codes."
+                : "Enter the 6-digit code from your authenticator app."}
           </p>
         </div>
 

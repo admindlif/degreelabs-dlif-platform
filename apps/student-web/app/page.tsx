@@ -13,58 +13,52 @@ import { getDiscoverOverview, getDiscoverWeeks } from "@/lib/api/discover";
 import { DiscoverOverview, DiscoverWeek, FellowContext } from "@/lib/api/types";
 
 async function fetchDashboardData() {
-  return Promise.all([
-    getFellowContext().catch((err: unknown) => {
-      console.warn(
-        "Could not load fellow context:",
-        err instanceof Error ? err.message : err
-      );
-      return null;
-    }),
-    getDiscoverOverview().catch((err: unknown) => {
-      console.warn(
-        "Could not load discover overview:",
-        err instanceof Error ? err.message : err
-      );
-      return null;
-    }),
-    getDiscoverWeeks().catch((err: unknown) => {
-      console.warn(
-        "Could not load discover weeks:",
-        err instanceof Error ? err.message : err
-      );
-      return null;
-    }),
+  return Promise.allSettled([
+    getFellowContext(),
+    getDiscoverOverview(),
+    getDiscoverWeeks(),
   ]);
 }
+
+const DASHBOARD_ERROR_MESSAGE = "Unable to load your fellowship dashboard.";
 
 export default function DiscoverHomePage() {
   const [context, setContext] = React.useState<FellowContext | null>(null);
   const [overview, setOverview] = React.useState<DiscoverOverview | null>(null);
   const [weeks, setWeeks] = React.useState<DiscoverWeek[] | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [retrying, setRetrying] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
 
   const loadData = React.useCallback(async () => {
     try {
-      const [ctxData, ovData, weeksData] = await fetchDashboardData();
+      const [contextResult, overviewResult, weeksResult] =
+        await fetchDashboardData();
 
-      setContext(ctxData);
-      setOverview(ovData);
-      setWeeks(weeksData);
-    } catch (err: unknown) {
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Failed to load fellowship data. Please try again."
+      if (contextResult.status === "fulfilled") {
+        setContext(contextResult.value);
+      }
+      if (overviewResult.status === "fulfilled") {
+        setOverview(overviewResult.value);
+      }
+      if (weeksResult.status === "fulfilled") {
+        setWeeks(weeksResult.value);
+      }
+
+      const failed = [contextResult, overviewResult, weeksResult].some(
+        (result) => result.status === "rejected"
       );
+      setError(failed ? DASHBOARD_ERROR_MESSAGE : null);
+    } catch {
+      setError(DASHBOARD_ERROR_MESSAGE);
     } finally {
       setLoading(false);
+      setRetrying(false);
     }
   }, []);
 
   const retryLoad = React.useCallback(() => {
-    setLoading(true);
+    setRetrying(true);
     setError(null);
     void loadData();
   }, [loadData]);
@@ -73,19 +67,27 @@ export default function DiscoverHomePage() {
     let cancelled = false;
 
     void fetchDashboardData()
-      .then(([ctxData, ovData, weeksData]) => {
+      .then(([contextResult, overviewResult, weeksResult]) => {
         if (cancelled) return;
-        setContext(ctxData);
-        setOverview(ovData);
-        setWeeks(weeksData);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Failed to load fellowship data. Please try again."
+
+        if (contextResult.status === "fulfilled") {
+          setContext(contextResult.value);
+        }
+        if (overviewResult.status === "fulfilled") {
+          setOverview(overviewResult.value);
+        }
+        if (weeksResult.status === "fulfilled") {
+          setWeeks(weeksResult.value);
+        }
+
+        const failed = [contextResult, overviewResult, weeksResult].some(
+          (result) => result.status === "rejected"
         );
+        setError(failed ? DASHBOARD_ERROR_MESSAGE : null);
+      })
+      .catch(() => {
+        if (cancelled) return;
+        setError(DASHBOARD_ERROR_MESSAGE);
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
@@ -113,14 +115,14 @@ export default function DiscoverHomePage() {
       context={context}
     >
       {error && (
-        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-center justify-between gap-4 text-sm text-red-800">
+        <div role="alert" className="mb-6 flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
-          <Button variant="secondary" size="sm" onClick={retryLoad}>
-            <RefreshCw className="w-3.5 h-3.5 mr-1" />
-            Retry
+          <Button size="sm" onClick={retryLoad} disabled={retrying}>
+            <RefreshCw className={`w-3.5 h-3.5 mr-1 ${retrying ? "animate-spin" : ""}`} />
+            {retrying ? "Retrying..." : "Retry"}
           </Button>
         </div>
       )}

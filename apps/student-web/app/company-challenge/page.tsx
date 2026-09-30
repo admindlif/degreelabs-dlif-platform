@@ -2,15 +2,30 @@
 
 import * as React from "react";
 import {
+    AlertCircle,
     Building2,
     ExternalLink,
     FileText,
+    RefreshCw,
     Target,
 } from "lucide-react";
 
 import { PortalShell } from "@/components/layout/portal-shell";
+import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
 import { getCompanyChallenge } from "@/lib/api/toolkit";
 import { CompanyChallenge } from "@/lib/api/types";
+
+async function requestCompanyChallenge(): Promise<CompanyChallenge | null> {
+    try {
+        return await getCompanyChallenge();
+    } catch (error: unknown) {
+        if (error instanceof ApiError && error.status === 404) {
+            return null;
+        }
+        throw error;
+    }
+}
 
 export default function CompanyChallengePage() {
     const [challenge, setChallenge] =
@@ -21,16 +36,42 @@ export default function CompanyChallengePage() {
     const [error, setError] =
         React.useState<string | null>(null);
 
+    const loadChallenge = React.useCallback(async () => {
+        try {
+            setChallenge(await requestCompanyChallenge());
+            setError(null);
+        } catch {
+            setError("Unable to load your Company Challenge.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const retryChallenge = React.useCallback(() => {
+        setLoading(true);
+        setError(null);
+        void loadChallenge();
+    }, [loadChallenge]);
+
     React.useEffect(() => {
-        getCompanyChallenge()
-            .then(setChallenge)
-            .catch((err) => {
-                setError(
-                    err?.message ||
-                    "Unable to load Company Challenge."
-                );
+        let cancelled = false;
+
+        void requestCompanyChallenge()
+            .then((data) => {
+                if (!cancelled) setChallenge(data);
             })
-            .finally(() => setLoading(false));
+            .catch(() => {
+                if (!cancelled) {
+                    setError("Unable to load your Company Challenge.");
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     return (
@@ -56,8 +97,21 @@ export default function CompanyChallengePage() {
                 )}
 
                 {error && !loading && (
-                    <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-                        {error}
+                    <div role="alert" className="flex flex-col gap-4 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 font-semibold">
+                            <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+                            {error}
+                        </div>
+                        <Button size="sm" onClick={retryChallenge}>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Retry
+                        </Button>
+                    </div>
+                )}
+
+                {!loading && !error && !challenge && (
+                    <div className="rounded-2xl border border-[var(--color-border-default)] bg-white p-8 text-center text-sm text-[var(--color-text-muted)]">
+                        No Team or Company Challenge has been assigned yet.
                     </div>
                 )}
 

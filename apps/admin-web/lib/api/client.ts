@@ -1,5 +1,5 @@
 const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8002";
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const TOKEN_KEY = "dlif_admin_token";
 
@@ -52,9 +52,9 @@ export async function adminApiClient<T>(
 
     const detail =
       typeof errorData === "object" &&
-      errorData !== null &&
-      "detail" in errorData &&
-      typeof errorData.detail === "string"
+        errorData !== null &&
+        "detail" in errorData &&
+        typeof errorData.detail === "string"
         ? errorData.detail
         : null;
     const message =

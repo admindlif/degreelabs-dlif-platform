@@ -1,21 +1,64 @@
 "use client";
 
 import * as React from "react";
-import { Users } from "lucide-react";
+import { AlertCircle, RefreshCw, Users } from "lucide-react";
 
 import { PortalShell } from "@/components/layout/portal-shell";
+import { Button } from "@/components/ui/button";
+import { ApiError } from "@/lib/api/client";
 import { getFellowTeam } from "@/lib/api/toolkit";
 import { FellowTeam } from "@/lib/api/types";
+
+async function requestTeam(): Promise<FellowTeam | null> {
+    try {
+        return await getFellowTeam();
+    } catch (error: unknown) {
+        if (error instanceof ApiError && error.status === 404) {
+            return null;
+        }
+        throw error;
+    }
+}
 
 export default function TeamPage() {
     const [team, setTeam] = React.useState<FellowTeam | null>(null);
     const [loading, setLoading] = React.useState(true);
+    const [error, setError] = React.useState<string | null>(null);
+
+    const loadTeam = React.useCallback(async () => {
+        try {
+            setTeam(await requestTeam());
+            setError(null);
+        } catch {
+            setError("Unable to load your team.");
+        } finally {
+            setLoading(false);
+        }
+    }, []);
+
+    const retryTeam = React.useCallback(() => {
+        setLoading(true);
+        setError(null);
+        void loadTeam();
+    }, [loadTeam]);
 
     React.useEffect(() => {
-        getFellowTeam()
-            .then(setTeam)
-            .catch(() => setTeam(null))
-            .finally(() => setLoading(false));
+        let cancelled = false;
+
+        void requestTeam()
+            .then((data) => {
+                if (!cancelled) setTeam(data);
+            })
+            .catch(() => {
+                if (!cancelled) setError("Unable to load your team.");
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, []);
 
     return (
@@ -33,6 +76,17 @@ export default function TeamPage() {
                 {loading ? (
                     <div className="rounded-2xl border border-[var(--color-border-default)] p-8 text-center text-sm text-[var(--color-text-muted)]">
                         Loading Team...
+                    </div>
+                ) : error ? (
+                    <div role="alert" className="flex flex-col gap-4 rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-800 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2 font-semibold">
+                            <AlertCircle className="h-5 w-5 shrink-0 text-red-600" />
+                            Unable to load your team.
+                        </div>
+                        <Button size="sm" onClick={retryTeam}>
+                            <RefreshCw className="h-3.5 w-3.5" />
+                            Retry
+                        </Button>
                     </div>
                 ) : !team ? (
                     <div className="rounded-2xl border border-[var(--color-border-default)] p-8 text-center text-sm text-[var(--color-text-muted)]">
