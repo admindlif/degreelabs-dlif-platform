@@ -8,6 +8,7 @@ import {
     createCohort,
     updateCohort,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface CohortModalProps {
     cohort?: AdminCohort | null;
@@ -72,10 +73,8 @@ export function CohortModal({
             }
 
             await onSaved();
-        } catch (err: any) {
-            setError(
-                err?.message || "Unable to save cohort."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to save cohort."));
         } finally {
             setSaving(false);
         }

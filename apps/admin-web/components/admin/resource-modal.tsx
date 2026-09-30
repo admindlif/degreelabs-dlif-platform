@@ -10,6 +10,7 @@ import {
   createResource,
   updateResource,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 
 interface ResourceModalProps {
@@ -193,11 +194,8 @@ export function ResourceModal({
       }
 
       await onSaved();
-    } catch (err: any) {
-      setError(
-        err?.message ||
-        "Unable to save Resource."
-      );
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to save Resource."));
     } finally {
       setSaving(false);
     }

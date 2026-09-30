@@ -10,6 +10,7 @@ import {
     getCohortFellows,
     removeFellowFromCohort,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface CohortFellowsModalProps {
     cohort: AdminCohort;
@@ -45,18 +46,32 @@ export function CohortFellowsModal({
             );
 
             setEnrolled(data);
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to load cohort Fellows."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to load cohort Fellows."));
         } finally {
             setLoading(false);
         }
     }
 
     React.useEffect(() => {
-        loadEnrolled();
+        let cancelled = false;
+
+        void getCohortFellows(cohort.id)
+            .then((data) => {
+                if (!cancelled) setEnrolled(data);
+            })
+            .catch((err: unknown) => {
+                if (!cancelled) {
+                    setError(getErrorMessage(err, "Unable to load cohort Fellows."));
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [cohort.id]);
 
     const enrolledIds = new Set(
@@ -80,11 +95,8 @@ export function CohortFellowsModal({
             await loadEnrolled();
             await onSaved();
 
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to enroll Fellow."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to enroll Fellow."));
         } finally {
             setBusyId(null);
         }
@@ -113,11 +125,8 @@ export function CohortFellowsModal({
             await loadEnrolled();
             await onSaved();
 
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to remove Fellow."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to remove Fellow."));
         } finally {
             setBusyId(null);
         }

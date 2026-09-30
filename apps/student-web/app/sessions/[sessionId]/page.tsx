@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     ArrowLeft,
     Calendar,
@@ -59,6 +59,8 @@ function getErrorMessage(error: unknown, fallback: string) {
 
 function SessionWorkspaceContent() {
     const params = useParams();
+    const pathname = usePathname();
+    const router = useRouter();
     const searchParams = useSearchParams();
 
     const sessionId = params.sessionId as string;
@@ -96,10 +98,9 @@ function SessionWorkspaceContent() {
     const [submissionLoaded, setSubmissionLoaded] =
         React.useState(false);
 
-    const [activeTab, setActiveTab] =
-        React.useState<Tab>(() =>
-            getRequestedTab(searchParams.get("tab"))
-        );
+    const activeTab = getRequestedTab(
+        searchParams.get("tab")
+    );
 
     const [loading, setLoading] =
         React.useState(true);
@@ -119,23 +120,15 @@ function SessionWorkspaceContent() {
     const [feedbackLoaded, setFeedbackLoaded] =
         React.useState(false);
 
-    React.useEffect(() => {
-        setActiveTab(
-            getRequestedTab(searchParams.get("tab"))
-        );
-    }, [searchParams]);
-
     const loadSession = React.useCallback(
         async () => {
-            setLoading(true);
-            setError(null);
-
             try {
                 const data = await getSessionDetail(
                     sessionId
                 );
 
                 setSession(data);
+                setError(null);
             } catch (err: unknown) {
                 setError(getErrorMessage(err, "Unable to load this Session."));
             } finally {
@@ -145,11 +138,53 @@ function SessionWorkspaceContent() {
         [sessionId]
     );
 
-    React.useEffect(() => {
-        if (sessionId) {
-            loadSession();
+    const retrySession = React.useCallback(() => {
+        setLoading(true);
+        setError(null);
+        void loadSession();
+    }, [loadSession]);
+
+    const selectTab = React.useCallback((tab: Tab) => {
+        const nextSearchParams = new URLSearchParams(
+            searchParams.toString()
+        );
+
+        if (tab === "overview") {
+            nextSearchParams.delete("tab");
+        } else {
+            nextSearchParams.set("tab", tab);
         }
-    }, [sessionId, loadSession]);
+
+        const query = nextSearchParams.toString();
+        router.replace(
+            query ? `${pathname}?${query}` : pathname,
+            { scroll: false }
+        );
+    }, [pathname, router, searchParams]);
+
+    React.useEffect(() => {
+        if (!sessionId) return;
+
+        let cancelled = false;
+
+        void getSessionDetail(sessionId)
+            .then((data) => {
+                if (cancelled) return;
+                setSession(data);
+                setError(null);
+            })
+            .catch((err: unknown) => {
+                if (cancelled) return;
+                setError(getErrorMessage(err, "Unable to load this Session."));
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [sessionId]);
 
     React.useEffect(() => {
         if (
@@ -297,7 +332,7 @@ function SessionWorkspaceContent() {
                         <div className="flex gap-3 mt-5">
                             <Button
                                 variant="secondary"
-                                onClick={loadSession}
+                                onClick={retrySession}
                             >
                                 <RefreshCw className="w-4 h-4" />
                                 Retry
@@ -439,9 +474,7 @@ function SessionWorkspaceContent() {
                                     <button
                                         key={tab.key}
                                         type="button"
-                                        onClick={() =>
-                                            setActiveTab(tab.key)
-                                        }
+                                        onClick={() => selectTab(tab.key)}
                                         className={`flex min-h-12 items-center gap-2 border-b-2 px-3 py-3 text-sm font-semibold whitespace-nowrap sm:px-4 ${active
                                             ? "border-[var(--color-brand-orange)] text-[var(--color-text-primary)]"
                                             : "border-transparent text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]"

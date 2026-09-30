@@ -8,6 +8,7 @@ import {
   createTeam,
   updateTeam,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface TeamModalProps {
   team?: AdminTeam | null;
@@ -141,11 +142,8 @@ export function TeamModal({
       }
 
       await onSaved();
-    } catch (err: any) {
-      setError(
-        err?.message ||
-        "Unable to save Team."
-      );
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to save Team."));
     } finally {
       setSaving(false);
     }

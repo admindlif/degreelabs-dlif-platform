@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { getApiBaseUrl } from "@/lib/api/config";
 
 export interface AuthUser {
   id: string;
@@ -27,7 +28,6 @@ interface AuthContextType {
 const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 const TOKEN_KEY = "dlif_student_token";
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = React.useState<AuthUser | null>(null);
@@ -39,7 +39,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const fetchProfile = React.useCallback(async (authToken: string): Promise<AuthUser | null> => {
     try {
-      const res = await fetch(`${API_URL}/api/v1/student-portal/me`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/student-portal/me`, {
         headers: {
           Authorization: `Bearer ${authToken}`,
         },

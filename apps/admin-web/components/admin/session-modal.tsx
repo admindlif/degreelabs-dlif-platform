@@ -10,6 +10,7 @@ import {
   createSession,
   updateSession,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface SessionModalProps {
   session?: AdminSession | null;
@@ -223,8 +224,8 @@ export function SessionModal({
         });
       }
       await onSaved();
-    } catch (err: any) {
-      setError(err?.message || "Unable to save session.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to save session."));
     } finally {
       setSaving(false);
     }

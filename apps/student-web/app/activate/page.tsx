@@ -6,7 +6,6 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ShieldCheck,
-  KeyRound,
   CheckCircle2,
   Lock,
   Copy,
@@ -17,8 +16,8 @@ import {
   QrCode,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api/config";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const ONBOARDING_RESUME_KEY = "dlif_onboarding_resume";
 
 function StepIndicator({ currentStep }: { currentStep: 1 | 2 | 3 | 4 }) {
@@ -99,10 +98,8 @@ function StudentActivationContent() {
   const resumeAttempted = React.useRef(false);
 
   const beginTwoFactorSetup = React.useCallback(async (onboardingToken: string) => {
-    setTempAccessToken(onboardingToken);
-
     const setupRes = await fetch(
-      `${API_URL}/api/v1/auth/2fa/setup`,
+      `${getApiBaseUrl()}/api/v1/auth/2fa/setup`,
       {
         method: "POST",
         headers: {
@@ -117,6 +114,7 @@ function StudentActivationContent() {
       throw new Error("Unable to start two-factor authentication setup.");
     }
 
+    setTempAccessToken(onboardingToken);
     setTotpSecret(setupData.secret);
     setOtpauthUri(setupData.totp_uri);
     setStep(2);
@@ -126,19 +124,29 @@ function StudentActivationContent() {
     if (searchParams.get("resume") !== "1" || resumeAttempted.current) return;
     resumeAttempted.current = true;
 
-    const onboardingToken = sessionStorage.getItem(ONBOARDING_RESUME_KEY);
-    sessionStorage.removeItem(ONBOARDING_RESUME_KEY);
-    if (!onboardingToken) {
-      setError("Your onboarding session is unavailable. Sign in again to resume setup.");
-      return;
+    async function resumeOnboarding() {
+      // Resume after the effect completes so initialization does not synchronously
+      // cascade state updates from the effect body.
+      await Promise.resolve();
+
+      const onboardingToken = sessionStorage.getItem(ONBOARDING_RESUME_KEY);
+      sessionStorage.removeItem(ONBOARDING_RESUME_KEY);
+      if (!onboardingToken) {
+        setError("Your onboarding session is unavailable. Sign in again to resume setup.");
+        return;
+      }
+
+      setLoading(true);
+      try {
+        await beginTwoFactorSetup(onboardingToken);
+      } catch {
+        setError("Unable to resume two-factor authentication setup. Sign in and try again.");
+      } finally {
+        setLoading(false);
+      }
     }
 
-    setLoading(true);
-    beginTwoFactorSetup(onboardingToken)
-      .catch(() => {
-        setError("Unable to resume two-factor authentication setup. Sign in and try again.");
-      })
-      .finally(() => setLoading(false));
+    void resumeOnboarding();
   }, [beginTwoFactorSetup, searchParams]);
 
   // Step 1: Submit invitation token + password
@@ -159,7 +167,7 @@ function StudentActivationContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/activate`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/activate`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -207,7 +215,7 @@ function StudentActivationContent() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/2fa/confirm`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/2fa/confirm`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -8,6 +8,7 @@ import {
   createPhase,
   updatePhase,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface PhaseModalProps {
   phase?: AdminPhase | null;
@@ -100,11 +101,8 @@ export function PhaseModal({
       }
 
       await onSaved();
-    } catch (err: any) {
-      setError(
-        err?.message ||
-        "Unable to save phase."
-      );
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to save phase."));
     } finally {
       setSaving(false);
     }

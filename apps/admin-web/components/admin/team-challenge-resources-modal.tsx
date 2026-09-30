@@ -17,6 +17,7 @@ import {
     getTeamChallengeResources,
     updateTeamChallengeResource,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface TeamChallengeResourcesModalProps {
     team: AdminTeam;
@@ -66,19 +67,33 @@ export function TeamChallengeResourcesModal({
                     );
 
                 setResources(data);
-            } catch (err: any) {
-                setError(
-                    err?.message ||
-                    "Unable to load challenge resources."
-                );
+            } catch (err: unknown) {
+                setError(getErrorMessage(err, "Unable to load challenge resources."));
             } finally {
                 setLoading(false);
             }
         }, [team.id]);
 
     React.useEffect(() => {
-        loadResources();
-    }, [loadResources]);
+        let cancelled = false;
+
+        void getTeamChallengeResources(team.id)
+            .then((data) => {
+                if (!cancelled) setResources(data);
+            })
+            .catch((err: unknown) => {
+                if (!cancelled) {
+                    setError(getErrorMessage(err, "Unable to load challenge resources."));
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [team.id]);
 
     function resetForm() {
         setEditingId(null);
@@ -153,11 +168,8 @@ export function TeamChallengeResourcesModal({
             resetForm();
 
             await loadResources();
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to save challenge resource."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to save challenge resource."));
         } finally {
             setSaving(false);
         }
@@ -187,11 +199,8 @@ export function TeamChallengeResourcesModal({
             }
 
             await loadResources();
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to delete challenge resource."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to delete challenge resource."));
         }
     }
 

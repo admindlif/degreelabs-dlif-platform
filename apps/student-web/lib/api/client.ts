@@ -1,11 +1,12 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+import { getApiBaseUrl } from "@/lib/api/config";
+
 const TOKEN_KEY = "dlif_student_token";
 
 export class ApiError extends Error {
   status: number;
-  data: any;
+  data: unknown;
 
-  constructor(message: string, status: number, data?: any) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
@@ -35,7 +36,7 @@ export async function apiClient<T>(
   }
 
   const normalizedEndpoint = endpoint.startsWith("/") ? endpoint : `/${endpoint}`;
-  const base = API_BASE_URL.replace(/\/api\/v1\/?$/, "");
+  const base = getApiBaseUrl().replace(/\/api\/v1\/?$/, "");
   const path = normalizedEndpoint.startsWith("/api/v1") ? normalizedEndpoint : `/api/v1${normalizedEndpoint}`;
   const url = `${base}${path}`;
 
@@ -45,13 +46,20 @@ export async function apiClient<T>(
   });
 
   if (!res.ok) {
-    let errorData: any = null;
+    let errorData: unknown = null;
     try {
       errorData = await res.json();
     } catch {
       // ignore
     }
-    const message = errorData?.detail || `API Request failed with status ${res.status}`;
+    const detail =
+      typeof errorData === "object" &&
+      errorData !== null &&
+      "detail" in errorData &&
+      typeof errorData.detail === "string"
+        ? errorData.detail
+        : null;
+    const message = detail || `API Request failed with status ${res.status}`;
     throw new ApiError(message, res.status, errorData);
   }
 

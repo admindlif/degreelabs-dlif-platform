@@ -12,6 +12,32 @@ import { getFellowContext } from "@/lib/api/fellow";
 import { getDiscoverOverview, getDiscoverWeeks } from "@/lib/api/discover";
 import { DiscoverOverview, DiscoverWeek, FellowContext } from "@/lib/api/types";
 
+async function fetchDashboardData() {
+  return Promise.all([
+    getFellowContext().catch((err: unknown) => {
+      console.warn(
+        "Could not load fellow context:",
+        err instanceof Error ? err.message : err
+      );
+      return null;
+    }),
+    getDiscoverOverview().catch((err: unknown) => {
+      console.warn(
+        "Could not load discover overview:",
+        err instanceof Error ? err.message : err
+      );
+      return null;
+    }),
+    getDiscoverWeeks().catch((err: unknown) => {
+      console.warn(
+        "Could not load discover weeks:",
+        err instanceof Error ? err.message : err
+      );
+      return null;
+    }),
+  ]);
+}
+
 export default function DiscoverHomePage() {
   const [context, setContext] = React.useState<FellowContext | null>(null);
   const [overview, setOverview] = React.useState<DiscoverOverview | null>(null);
@@ -20,23 +46,8 @@ export default function DiscoverHomePage() {
   const [error, setError] = React.useState<string | null>(null);
 
   const loadData = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const [ctxData, ovData, weeksData] = await Promise.all([
-        getFellowContext().catch((err) => {
-          console.warn("Could not load fellow context:", err.message);
-          return null;
-        }),
-        getDiscoverOverview().catch((err) => {
-          console.warn("Could not load discover overview:", err.message);
-          return null;
-        }),
-        getDiscoverWeeks().catch((err) => {
-          console.warn("Could not load discover weeks:", err.message);
-          return null;
-        }),
-      ]);
+      const [ctxData, ovData, weeksData] = await fetchDashboardData();
 
       setContext(ctxData);
       setOverview(ovData);
@@ -52,9 +63,38 @@ export default function DiscoverHomePage() {
     }
   }, []);
 
-  React.useEffect(() => {
-    loadData();
+  const retryLoad = React.useCallback(() => {
+    setLoading(true);
+    setError(null);
+    void loadData();
   }, [loadData]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    void fetchDashboardData()
+      .then(([ctxData, ovData, weeksData]) => {
+        if (cancelled) return;
+        setContext(ctxData);
+        setOverview(ovData);
+        setWeeks(weeksData);
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load fellowship data. Please try again."
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   if (loading) {
     return (
@@ -78,7 +118,7 @@ export default function DiscoverHomePage() {
             <AlertCircle className="w-5 h-5 text-red-600 shrink-0" />
             <span>{error}</span>
           </div>
-          <Button variant="secondary" size="sm" onClick={loadData}>
+          <Button variant="secondary" size="sm" onClick={retryLoad}>
             <RefreshCw className="w-3.5 h-3.5 mr-1" />
             Retry
           </Button>

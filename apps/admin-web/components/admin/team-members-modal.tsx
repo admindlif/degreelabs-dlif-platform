@@ -12,6 +12,7 @@ import {
     getCohortFellows,
     removeTeamMember,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface TeamMembersModalProps {
     team: AdminTeam;
@@ -60,18 +61,41 @@ export function TeamMembersModal({
                         fellow.enrollment_status === "active"
                 )
             );
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to load Team information."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to load Team information."));
         } finally {
             setLoading(false);
         }
     }
 
     React.useEffect(() => {
-        loadData();
+        let cancelled = false;
+
+        void Promise.all([
+            getAdminTeam(team.id),
+            getCohortFellows(team.cohort_id),
+        ])
+            .then(([teamData, cohortFellowsData]) => {
+                if (cancelled) return;
+                setDetail(teamData);
+                setCohortFellows(
+                    cohortFellowsData.filter(
+                        (fellow) => fellow.enrollment_status === "active"
+                    )
+                );
+            })
+            .catch((err: unknown) => {
+                if (!cancelled) {
+                    setError(getErrorMessage(err, "Unable to load Team information."));
+                }
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
     }, [team.id, team.cohort_id]);
 
     // -----------------------------------------------
@@ -108,11 +132,8 @@ export function TeamMembersModal({
 
             await loadData();
             await onChanged();
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to add Fellow to Team."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to add Fellow to Team."));
         } finally {
             setSavingUserId(null);
         }
@@ -144,11 +165,8 @@ export function TeamMembersModal({
 
             await loadData();
             await onChanged();
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to assign Team Lead."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to assign Team Lead."));
         } finally {
             setSavingUserId(null);
         }
@@ -180,11 +198,8 @@ export function TeamMembersModal({
 
             await loadData();
             await onChanged();
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to remove Fellow from Team."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to remove Fellow from Team."));
         } finally {
             setSavingUserId(null);
         }

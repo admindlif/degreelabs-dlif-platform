@@ -7,6 +7,7 @@ import {
     createProgram,
     updateProgram,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface ProgramModalProps {
     mode: "create" | "edit";
@@ -54,8 +55,8 @@ export function ProgramModal({
             }
 
             await onSaved();
-        } catch (err: any) {
-            setError(err?.message || "Unable to save program.");
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to save program."));
         } finally {
             setSaving(false);
         }

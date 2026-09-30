@@ -7,6 +7,7 @@ import {
     getAdminSubmissionFeedback,
     saveAdminSubmissionFeedback,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface SubmissionFeedbackModalProps {
     submissionId: string;
@@ -68,11 +69,8 @@ export function SubmissionFeedbackModal({
                         existing.status
                     );
                 }
-            } catch (err: any) {
-                setError(
-                    err?.message ||
-                    "Unable to load feedback."
-                );
+            } catch (err: unknown) {
+                setError(getErrorMessage(err, "Unable to load feedback."));
             } finally {
                 setLoading(false);
             }
@@ -113,11 +111,8 @@ export function SubmissionFeedbackModal({
             );
 
             await onSaved();
-        } catch (err: any) {
-            setError(
-                err?.message ||
-                "Unable to save feedback."
-            );
+        } catch (err: unknown) {
+            setError(getErrorMessage(err, "Unable to save feedback."));
         } finally {
             setSaving(false);
         }

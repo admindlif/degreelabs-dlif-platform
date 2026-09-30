@@ -58,7 +58,6 @@ import {
   deleteProgram,
   deleteResource,
   deleteSession,
-  deleteTeam,
   deleteWeek,
   deleteChecklistItem,
 
@@ -69,6 +68,7 @@ import {
   getAdminSessionSubmissions,
   updateChecklistItem,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 
 
@@ -280,7 +280,11 @@ export default function AdminHomePage() {
   }, []);
 
   React.useEffect(() => {
-    loadData();
+    const timeoutId = window.setTimeout(() => {
+      void loadData();
+    }, 0);
+
+    return () => window.clearTimeout(timeoutId);
   }, [loadData]);
 
   const handleInviteSubmit = async (e: React.FormEvent) => {
@@ -308,8 +312,8 @@ export default function AdminHomePage() {
       } else {
         setInviteError(result.message);
       }
-    } catch (err: any) {
-      setInviteError(err?.message || "Failed to invite Fellow. Please verify details.");
+    } catch (err: unknown) {
+      setInviteError(getErrorMessage(err, "Failed to invite Fellow. Please verify details."));
     } finally {
       setInviteLoading(false);
     }
@@ -421,33 +425,28 @@ export default function AdminHomePage() {
       );
 
   React.useEffect(() => {
-    if (!weeklyOutputSessionId) {
-      setWeeklyOutputSubmissions([]);
-      return;
-    }
+    if (!weeklyOutputSessionId) return;
 
-    async function loadWeeklyOutputs() {
-      setWeeklyOutputLoading(true);
-      setWeeklyOutputError(null);
+    let cancelled = false;
 
-      try {
-        const data =
-          await getAdminSessionSubmissions(
-            weeklyOutputSessionId
+    void getAdminSessionSubmissions(weeklyOutputSessionId)
+      .then((data) => {
+        if (!cancelled) setWeeklyOutputSubmissions(data);
+      })
+      .catch((err: unknown) => {
+        if (!cancelled) {
+          setWeeklyOutputError(
+            getErrorMessage(err, "Unable to load Team submissions.")
           );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setWeeklyOutputLoading(false);
+      });
 
-        setWeeklyOutputSubmissions(data);
-      } catch (err: any) {
-        setWeeklyOutputError(
-          err?.message ||
-          "Unable to load Team submissions."
-        );
-      } finally {
-        setWeeklyOutputLoading(false);
-      }
-    }
-
-    loadWeeklyOutputs();
+    return () => {
+      cancelled = true;
+    };
   }, [weeklyOutputSessionId]);
 
   const activePhase =
@@ -994,9 +993,9 @@ export default function AdminHomePage() {
                                   try {
                                     await deleteFellow(f.id);
                                     await loadData();
-                                  } catch (err: any) {
+                                  } catch (err: unknown) {
                                     window.alert(
-                                      err?.message || "Unable to delete Fellow."
+                                      getErrorMessage(err, "Unable to delete Fellow.")
                                     );
                                   }
                                 }}
@@ -1142,10 +1141,9 @@ export default function AdminHomePage() {
                                     );
 
                                     await loadData();
-                                  } catch (err: any) {
+                                  } catch (err: unknown) {
                                     window.alert(
-                                      err?.message ||
-                                      "Unable to delete phase."
+                                      getErrorMessage(err, "Unable to delete phase.")
                                     );
                                   }
                                 }}
@@ -1323,9 +1321,9 @@ export default function AdminHomePage() {
                             try {
                               await deleteCohort(cohort.id);
                               await loadData();
-                            } catch (err: any) {
+                            } catch (err: unknown) {
                               window.alert(
-                                err?.message || "Unable to delete cohort."
+                                getErrorMessage(err, "Unable to delete cohort.")
                               );
                             }
                           }}
@@ -1483,10 +1481,9 @@ export default function AdminHomePage() {
                                     try {
                                       await deleteProgram(program.id);
                                       await loadData();
-                                    } catch (err: any) {
+                                    } catch (err: unknown) {
                                       window.alert(
-                                        err?.message ||
-                                        "Unable to delete program."
+                                        getErrorMessage(err, "Unable to delete program.")
                                       );
                                     }
                                   }}
@@ -1737,10 +1734,9 @@ export default function AdminHomePage() {
                                   try {
                                     await deleteWeek(week.id);
                                     await loadData();
-                                  } catch (err: any) {
+                                  } catch (err: unknown) {
                                     window.alert(
-                                      err?.message ||
-                                      "Unable to delete week."
+                                      getErrorMessage(err, "Unable to delete week.")
                                     );
                                   }
                                 }}
@@ -1915,10 +1911,9 @@ export default function AdminHomePage() {
                                       try {
                                         await lockSession(session.id);
                                         await loadData();
-                                      } catch (err: any) {
+                                      } catch (err: unknown) {
                                         window.alert(
-                                          err?.message ||
-                                          "Unable to lock session."
+                                          getErrorMessage(err, "Unable to lock session.")
                                         );
                                       }
                                     }}
@@ -1941,10 +1936,9 @@ export default function AdminHomePage() {
                                       try {
                                         await unlockSession(session.id);
                                         await loadData();
-                                      } catch (err: any) {
+                                      } catch (err: unknown) {
                                         window.alert(
-                                          err?.message ||
-                                          "Unable to unlock session."
+                                          getErrorMessage(err, "Unable to unlock session.")
                                         );
                                       }
                                     }}
@@ -1979,10 +1973,9 @@ export default function AdminHomePage() {
                                     try {
                                       await deleteSession(session.id);
                                       await loadData();
-                                    } catch (err: any) {
+                                    } catch (err: unknown) {
                                       window.alert(
-                                        err?.message ||
-                                        "Unable to delete session."
+                                        getErrorMessage(err, "Unable to delete session.")
                                       );
                                     }
                                   }}
@@ -2188,10 +2181,9 @@ export default function AdminHomePage() {
                                       );
 
                                       await loadData();
-                                    } catch (err: any) {
+                                    } catch (err: unknown) {
                                       window.alert(
-                                        err?.message ||
-                                        "Unable to delete Resource."
+                                        getErrorMessage(err, "Unable to delete Resource.")
                                       );
                                     }
                                   }}
@@ -2303,8 +2295,8 @@ export default function AdminHomePage() {
                                           is_active: !item.is_active,
                                         });
                                         await loadData();
-                                      } catch (err: any) {
-                                        window.alert(err?.message || "Unable to change checklist item status.");
+                                      } catch (err: unknown) {
+                                        window.alert(getErrorMessage(err, "Unable to change checklist item status."));
                                       }
                                     }}
                                     className="rounded-lg border border-[var(--color-border-default)] px-3 py-1.5 font-semibold"
@@ -2328,8 +2320,8 @@ export default function AdminHomePage() {
                                       try {
                                         await deleteChecklistItem(item.id);
                                         await loadData();
-                                      } catch (err: any) {
-                                        window.alert(err?.message || "Unable to delete checklist item.");
+                                      } catch (err: unknown) {
+                                        window.alert(getErrorMessage(err, "Unable to delete checklist item."));
                                       }
                                     }}
                                     className="rounded-lg border border-red-200 px-3 py-1.5 font-semibold text-red-600"
@@ -2407,11 +2399,13 @@ export default function AdminHomePage() {
                   <select
                     value={weeklyOutputSessionId}
                     disabled={!weeklyOutputCohortId}
-                    onChange={(e) =>
-                      setWeeklyOutputSessionId(
-                        e.target.value
-                      )
-                    }
+                    onChange={(e) => {
+                      const sessionId = e.target.value;
+                      setWeeklyOutputSessionId(sessionId);
+                      setWeeklyOutputSubmissions([]);
+                      setWeeklyOutputError(null);
+                      setWeeklyOutputLoading(Boolean(sessionId));
+                    }}
                     className="w-full px-3 py-2.5 rounded-xl border border-[var(--color-border-default)] disabled:opacity-50"
                   >
                     <option value="">

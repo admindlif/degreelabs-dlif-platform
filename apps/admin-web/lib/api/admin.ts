@@ -360,12 +360,12 @@ export async function getAdminProgram(id: string): Promise<AdminProgram> {
   return adminApiClient<AdminProgram>(`/api/v1/admin/programs/${id}`);
 }
 
-export async function createProgram(data: ProgramCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/programs", { method: "POST", body: JSON.stringify(data) });
+export async function createProgram(data: ProgramCreate): Promise<AdminProgram> {
+  return adminApiClient<AdminProgram>("/api/v1/admin/programs", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateProgram(id: string, data: Partial<ProgramCreate>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/programs/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updateProgram(id: string, data: Partial<ProgramCreate>): Promise<AdminProgram> {
+  return adminApiClient<AdminProgram>(`/api/v1/admin/programs/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function deleteProgram(id: string): Promise<void> {
@@ -385,16 +385,16 @@ export async function getAdminPhase(id: string): Promise<AdminPhase> {
   return adminApiClient<AdminPhase>(`/api/v1/admin/phases/${id}`);
 }
 
-export async function updatePhase(id: string, data: Partial<AdminPhase>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/phases/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updatePhase(id: string, data: Partial<AdminPhase>): Promise<AdminPhase> {
+  return adminApiClient<AdminPhase>(`/api/v1/admin/phases/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function deletePhase(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/phases/${id}`, { method: "DELETE" });
 }
 
-export async function createPhase(data: PhaseCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/phases", {
+export async function createPhase(data: PhaseCreate): Promise<AdminPhase> {
+  return adminApiClient<AdminPhase>("/api/v1/admin/phases", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -412,12 +412,12 @@ export async function getAdminCohort(id: string): Promise<AdminCohort> {
   return adminApiClient<AdminCohort>(`/api/v1/admin/cohorts/${id}`);
 }
 
-export async function createCohort(data: CohortCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/cohorts", { method: "POST", body: JSON.stringify(data) });
+export async function createCohort(data: CohortCreate): Promise<AdminCohort> {
+  return adminApiClient<AdminCohort>("/api/v1/admin/cohorts", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateCohort(id: string, data: Partial<CohortCreate>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/cohorts/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updateCohort(id: string, data: Partial<CohortCreate>): Promise<AdminCohort> {
+  return adminApiClient<AdminCohort>(`/api/v1/admin/cohorts/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function deleteCohort(id: string): Promise<void> {
@@ -435,8 +435,8 @@ export async function getCohortFellows(
 export async function addFellowToCohort(
   cohortId: string,
   fellowId: string
-): Promise<any> {
-  return adminApiClient(
+): Promise<AdminCohortFellow> {
+  return adminApiClient<AdminCohortFellow>(
     `/api/v1/admin/cohorts/${cohortId}/fellows/${fellowId}`,
     {
       method: "POST",
@@ -469,12 +469,12 @@ export async function getAdminWeek(id: string): Promise<AdminWeek> {
   return adminApiClient<AdminWeek>(`/api/v1/admin/weeks/${id}`);
 }
 
-export async function createWeek(data: WeekCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/weeks", { method: "POST", body: JSON.stringify(data) });
+export async function createWeek(data: WeekCreate): Promise<AdminWeek> {
+  return adminApiClient<AdminWeek>("/api/v1/admin/weeks", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateWeek(id: string, data: Partial<WeekCreate>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/weeks/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updateWeek(id: string, data: Partial<WeekCreate>): Promise<AdminWeek> {
+  return adminApiClient<AdminWeek>(`/api/v1/admin/weeks/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function deleteWeek(id: string): Promise<void> {
@@ -525,12 +525,12 @@ export async function getAdminSession(id: string): Promise<AdminSession> {
   return adminApiClient<AdminSession>(`/api/v1/admin/sessions/${id}`);
 }
 
-export async function createSession(data: SessionCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/sessions", { method: "POST", body: JSON.stringify(data) });
+export async function createSession(data: SessionCreate): Promise<AdminSession> {
+  return adminApiClient<AdminSession>("/api/v1/admin/sessions", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateSession(id: string, data: Partial<SessionCreate>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updateSession(id: string, data: Partial<SessionCreate>): Promise<AdminSession> {
+  return adminApiClient<AdminSession>(`/api/v1/admin/sessions/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function deleteSession(id: string): Promise<void> {
@@ -567,19 +567,19 @@ export async function getAdminTeam(id: string): Promise<TeamDetail> {
   return adminApiClient<TeamDetail>(`/api/v1/admin/teams/${id}`);
 }
 
-export async function createTeam(data: TeamCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/teams", { method: "POST", body: JSON.stringify(data) });
+export async function createTeam(data: TeamCreate): Promise<AdminTeam> {
+  return adminApiClient<AdminTeam>("/api/v1/admin/teams", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateTeam(id: string, data: Partial<TeamCreate>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/teams/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updateTeam(id: string, data: Partial<TeamCreate>): Promise<AdminTeam> {
+  return adminApiClient<AdminTeam>(`/api/v1/admin/teams/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function updateTeamChallenge(
   teamId: string,
   data: TeamChallengeUpdate
-): Promise<any> {
-  return adminApiClient(
+): Promise<AdminTeam> {
+  return adminApiClient<AdminTeam>(
     `/api/v1/admin/teams/${teamId}/challenge`,
     {
       method: "PUT",
@@ -639,8 +639,8 @@ export async function deleteTeam(id: string): Promise<void> {
   await adminApiClient(`/api/v1/admin/teams/${id}`, { method: "DELETE" });
 }
 
-export async function addTeamMember(teamId: string, data: { user_id: string; team_role?: string }): Promise<any> {
-  return adminApiClient(`/api/v1/admin/teams/${teamId}/members`, { method: "POST", body: JSON.stringify(data) });
+export async function addTeamMember(teamId: string, data: { user_id: string; team_role?: string }): Promise<TeamMember> {
+  return adminApiClient<TeamMember>(`/api/v1/admin/teams/${teamId}/members`, { method: "POST", body: JSON.stringify(data) });
 }
 
 export async function removeTeamMember(teamId: string, userId: string): Promise<void> {
@@ -650,8 +650,8 @@ export async function removeTeamMember(teamId: string, userId: string): Promise<
 export async function assignTeamLead(
   teamId: string,
   userId: string
-): Promise<any> {
-  return adminApiClient(
+): Promise<TeamMember> {
+  return adminApiClient<TeamMember>(
     `/api/v1/admin/teams/${teamId}/lead`,
     {
       method: "PUT",
@@ -698,12 +698,12 @@ export async function getAdminResource(id: string): Promise<AdminResource> {
   return adminApiClient<AdminResource>(`/api/v1/admin/resources/${id}`);
 }
 
-export async function createResource(data: ResourceCreate): Promise<any> {
-  return adminApiClient("/api/v1/admin/resources", { method: "POST", body: JSON.stringify(data) });
+export async function createResource(data: ResourceCreate): Promise<AdminResource> {
+  return adminApiClient<AdminResource>("/api/v1/admin/resources", { method: "POST", body: JSON.stringify(data) });
 }
 
-export async function updateResource(id: string, data: Partial<ResourceCreate>): Promise<any> {
-  return adminApiClient(`/api/v1/admin/resources/${id}`, { method: "PUT", body: JSON.stringify(data) });
+export async function updateResource(id: string, data: Partial<ResourceCreate>): Promise<AdminResource> {
+  return adminApiClient<AdminResource>(`/api/v1/admin/resources/${id}`, { method: "PUT", body: JSON.stringify(data) });
 }
 
 export async function deleteResource(id: string): Promise<void> {

@@ -8,6 +8,7 @@ import {
   createWeek,
   updateWeek,
 } from "@/lib/api/admin";
+import { getErrorMessage } from "@/lib/api/client";
 
 interface WeekModalProps {
   week?: AdminWeek | null;
@@ -82,10 +83,8 @@ export function WeekModal({
       }
 
       await onSaved();
-    } catch (err: any) {
-      setError(
-        err?.message || "Unable to save week."
-      );
+    } catch (err: unknown) {
+      setError(getErrorMessage(err, "Unable to save week."));
     } finally {
       setSaving(false);
     }

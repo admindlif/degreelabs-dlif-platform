@@ -6,8 +6,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Shield, Lock, Mail, KeyRound, AlertCircle, ArrowRight, ArrowLeft, Loader2 } from "lucide-react";
 import { useAuth } from "@/lib/auth-context";
+import { getApiBaseUrl } from "@/lib/api/config";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 const ONBOARDING_RESUME_KEY = "dlif_onboarding_resume";
 
 export default function StudentLoginPage() {
@@ -34,7 +34,8 @@ export default function StudentLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/login`, {
+      const apiBaseUrl = getApiBaseUrl();
+      const res = await fetch(`${apiBaseUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim(), password }),
@@ -44,7 +45,7 @@ export default function StudentLoginPage() {
 
       if (!res.ok) {
         if (res.status === 403) {
-          const resumeRes = await fetch(`${API_URL}/api/v1/auth/onboarding/resume`, {
+          const resumeRes = await fetch(`${apiBaseUrl}/api/v1/auth/onboarding/resume`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ email: email.trim(), password }),
@@ -90,7 +91,7 @@ export default function StudentLoginPage() {
     setLoading(true);
 
     try {
-      const res = await fetch(`${API_URL}/api/v1/auth/2fa/verify`, {
+      const res = await fetch(`${getApiBaseUrl()}/api/v1/auth/2fa/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

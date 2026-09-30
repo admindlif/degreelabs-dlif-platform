@@ -162,9 +162,10 @@ export default function NotificationsPage() {
   const [savingIds, setSavingIds] = useState<Set<string>>(new Set());
 
   const loadChecklist = useCallback(async () => {
-    setError(null);
     try {
-      setChecklist(await getFellowChecklist());
+      const data = await getFellowChecklist();
+      setChecklist(data);
+      setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load your checklist.");
     } finally {
@@ -173,8 +174,26 @@ export default function NotificationsPage() {
   }, []);
 
   useEffect(() => {
-    void loadChecklist();
-  }, [loadChecklist]);
+    let cancelled = false;
+
+    void getFellowChecklist()
+      .then((data) => {
+        if (cancelled) return;
+        setChecklist(data);
+        setError(null);
+      })
+      .catch((loadError: unknown) => {
+        if (cancelled) return;
+        setError(loadError instanceof Error ? loadError.message : "Unable to load your checklist.");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const toDoCount = checklist
     ? Math.max(checklist.summary.pending - checklist.summary.overdue, 0)

@@ -42,7 +42,7 @@ export async function adminApiClient<T>(
   });
 
   if (!res.ok) {
-    let errorData: any = null;
+    let errorData: unknown = null;
 
     try {
       errorData = await res.json();
@@ -50,9 +50,15 @@ export async function adminApiClient<T>(
       // Response may not contain JSON
     }
 
+    const detail =
+      typeof errorData === "object" &&
+      errorData !== null &&
+      "detail" in errorData &&
+      typeof errorData.detail === "string"
+        ? errorData.detail
+        : null;
     const message =
-      errorData?.detail ||
-      `Admin API Request failed with status ${res.status}`;
+      detail || `Admin API Request failed with status ${res.status}`;
 
     throw new Error(message);
   }
@@ -63,4 +69,8 @@ export async function adminApiClient<T>(
   }
 
   return res.json();
+}
+
+export function getErrorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error && error.message ? error.message : fallback;
 }
